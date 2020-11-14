@@ -1,13 +1,18 @@
 
+from torch import Tensor
 
 from kge import Dataset
+
+from typing import Any, Dict, List, Optional, Union, Tuple
+
+import numpy as np
 
 
 class TypedDataset(Dataset):
 
-
-    def __init__(self, config, folder=None):
-        super().__init__(config, folder)
+    @staticmethod
+    def create(self: Dataset) -> 'TypedDataset':
+        config = self.config
 
         try:
             self._num_types: Int = config.get("dataset.num_types")
@@ -16,6 +21,9 @@ class TypedDataset(Dataset):
         except KeyError:
             self._num_types: Int = None
 
+        self.__class__ = TypedDataset
+
+        return self
 
     def num_types(self) -> int:
         "Return the number of entity types in this dataset."
@@ -26,7 +34,7 @@ class TypedDataset(Dataset):
 
 
     def entity_types(
-        indexes: Optional[Union[int, Tensor]] = None
+        self, indexes: Optional[Union[int, Tensor]] = None
     ) -> Union[str, List[str], np.ndarray]:
         """Decode indexes to entity types.
 

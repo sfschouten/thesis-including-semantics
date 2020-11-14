@@ -3,3 +3,7 @@
 *.swp
 
 data/*/
+
+**/__pycache__/
+
+*.egg-info/

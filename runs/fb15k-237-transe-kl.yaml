@@ -30,8 +30,7 @@ negative_sampling:
 train:
   auto_correct: true
   batch_size: 128
-  loss: margin_ranking
-  loss_arg: 3.0
+  loss_arg: 1.0
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95

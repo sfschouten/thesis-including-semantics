@@ -1,0 +1,15 @@
+import: [lookup_embedder]
+
+transt:
+  class_name: TransT
+  entity_embedder: 
+    type: lookup_embedder
+    +++: +++
+  relation_embedder: 
+    type: lookup_embedder
+    +++: +++
+  l_norm: 2.
+  lambda_head: 1.
+  lambda_relation: 1.
+  lambda_tail: 1.
+  rho: 100

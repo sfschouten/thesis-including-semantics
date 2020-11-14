@@ -1,12 +1,12 @@
 dataset:
-  name: fb15k-237
+  name: fb15k-237-typed
 eval:
   batch_size: 256
   metrics_per:
     relation_type: true
   trace_level: example
 import:
-- transe
+- transt
 lookup_embedder:
   dim: 128
   initialize: uniform_
@@ -21,7 +21,7 @@ lookup_embedder:
     xavier_uniform_:
       gain: 1.0
   regularize: ''
-model: transe 
+model: transt 
 negative_sampling:
   num_samples:
     o: 192
@@ -43,7 +43,7 @@ train:
   optimizer_args:
     lr: 0.00030000000000000014
   type: negative_sampling
-transe:
+transt:
   entity_embedder:
     dropout: -0.3519595685173064
     normalize:
