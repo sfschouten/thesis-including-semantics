@@ -56,6 +56,7 @@ transt:
       p: -1.0
     regularize_weight: 1.8180176908040284e-07
 valid:
+  every: 5
   early_stopping:
     min_threshold:
       epochs: 50
