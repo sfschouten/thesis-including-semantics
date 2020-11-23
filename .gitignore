@@ -2,6 +2,7 @@
 *~
 *.swp
 
+local/
 data/*/
 
 **/__pycache__/

@@ -12,4 +12,4 @@ transt:
   lambda_head: 1.
   lambda_relation: 1.
   lambda_tail: 1.
-  rho: 100
+  rho: 0.5

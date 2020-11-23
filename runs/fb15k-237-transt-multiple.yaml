@@ -7,6 +7,22 @@ eval:
   trace_level: example
 import:
 - transt
+- multiple_embedder
+multiple_embedder:
+  dim: 128
+  nr_embeds: 2
+  initialize: uniform_
+  initialize_args:
+    normal_:
+      mean: 0.0
+      std: 3.5688807324453804e-05
+    uniform_:
+      a: -1.0000000000065512e-05
+    xavier_normal_:
+      gain: 1.0
+    xavier_uniform_:
+      gain: 1.0
+  regularize: ''
 lookup_embedder:
   dim: 128
   initialize: uniform_
@@ -48,9 +64,10 @@ transt:
   lambda_relation: 0.
   lambda_tail: 1.
   entity_embedder:
+    type: multiple_embedder
     dropout: -0.3519595685173064
-    normalize:
-      p: -1.0
+    #normalize:
+    #  p: -1.0
     regularize_weight: 7.469488745511875e-12
   l_norm: 2.0
   relation_embedder:
