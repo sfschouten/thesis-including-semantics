@@ -80,28 +80,30 @@ class TransT(KgeModel):
 
         self.types_tensor = types_tensor
 
-        # TODO Rather than checking for a specific class, create interface
-        # for all embedders that might need type information
-
-        # initialize the GrowingEmbeddersEmbedders
-        for embedder in (self.get_s_embedder(), self.get_o_embedder()):
-            if isinstance(embedder, GrowingMultipleEmbedder):
-                embedder.initialize_semantics(T)
-
         self._lambda_head = self.get_option("lambda_head")
         self._lambda_relation = self.get_option("lambda_relation")
         self._lambda_tail = self.get_option("lambda_tail")
         
+        # TODO Rather than checking for a specific class, create interface
+        # for all embedders that might need type information
+
+        # initialize the GrowingEmbeddersEmbedders
+        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())) \
+        and self.get_s_embedder() is self.get_o_embedder():
+            self.get_s_embedder().initialize_semantics(types_tensor)
+
     def _s(self, T_1, T_2):
-        intersection_size = (T_1 & T_2).sum(dim=1)
-        other_size = T_1.sum(dim=1)
+        intersection_size = (T_1 & T_2).sum(dim=1).float()
+        other_size = T_1.sum(dim=1).float()
         
         result = intersection_size / other_size
         result += 1e-18 # prevent log(0)
         
         # If |T_1| = 0, than the numerator and denominator are both 0
-        #   therefore the outcome should be 1 ? TODO: check
-        result[other_size.expand_as(result) == 0] = 1
+        #   therefore the outcome should be ??? TODO: check
+        #    - no information -> 0.5
+        #    - 0/0 =?= 1
+        result[other_size.expand_as(result) == 0] = 0.5
         return result
 
     def _log_prior(self, T_h, T_r_head, T_r_tail, T_t, corrupted):
@@ -153,6 +155,7 @@ class TransT(KgeModel):
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         """
         """
+        s, p, o = s.long(), p.long(), o.long()
         s_emb = self.get_s_embedder().embed(s)
         p_emb = self.get_p_embedder().embed(p)
         o_emb = self.get_o_embedder().embed(o)
@@ -162,29 +165,36 @@ class TransT(KgeModel):
                 emb.unsqueeze_(2)
 
         # get typesets
-        s, p, o = s.long(), p.long(), o.long()
         s_t = self.types_tensor[s]
-        r_t_h = self.rel_common_head[p]
-        r_t_t = self.rel_common_tail[p]
+        r_t = self.rel_common_head[p], self.rel_common_tail[p]
         o_t = self.types_tensor[o]
 
-        logprior = self._log_prior(s_t, r_t_h, r_t_t, o_t, direction)
-        
+        logprior = self._log_prior(s_t, r_t[0], r_t[1], o_t, direction)
+       
+        count = 0
         loglikelihood = 0
         for i in range(s_emb.shape[2]):
             for j in range(o_emb.shape[2]):
-
-                # TODO: check for empty and skip
-
                 s_emb_i = s_emb[:,:,i]
                 o_emb_j = o_emb[:,:,j]
-                
+ 
+                # check if unused and skip if so
+                if (s_emb_i == -1).all() or (o_emb_j == -1).all():
+                    continue
+                else:
+                    count += 1
+
                 loglikelihood += self._scorer.score_emb(
                     s_emb_i, p_emb, o_emb_j, combine="spo"
                 ).squeeze()
-        loglikelihood /= s_emb.shape[2] * o_emb.shape[2]
+        loglikelihood /= count 
 
-
+        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())) \
+        and self.get_s_embedder() is self.get_o_embedder():
+            self.get_s_embedder().update(
+                (s,p,o),(s_emb,p_emb,o_emb),(s_t,r_t,o_t),
+                loglikelihood, self._s)
+            
         logposterior = loglikelihood + logprior
         return logposterior.view(-1)
 
@@ -202,17 +212,18 @@ class TransT(KgeModel):
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
     ) -> Tensor:
 
+        s, p, o = s.long(), p.long(), o.long()
         s_e = self.get_s_embedder().embed(s)
         p_e = self.get_p_embedder().embed(p)
         o_e = self.get_o_embedder().embed(o)
 
         # get typesets
-        s, p, o = s.long(), p.long(), o.long()
         s_t = self.types_tensor[s]
         p_t = self.rel_common_head[p], self.rel_common_tail[p]
         o_t = self.types_tensor[o]
 
         if entity_subset is not None:
+            entity_subset = entity_subset.long()
             all_entity_types = self.types_tensor[entity_subset]
         else:
             all_entity_types = self.types_tensor

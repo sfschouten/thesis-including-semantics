@@ -13,57 +13,74 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
     ):
 
         super().__init__(
-            config, dataset, configuration_key, init_for_load_only=init_for_load_only
+            config, dataset, configuration_key, vocab_size, 
+            init_for_load_only=init_for_load_only
         )
 
-        device = config.get("job.device")
-        self.crp_beta = config.get_option("crp_beta")
-        self.max_nr_semantics = config.get_option("max_nr_semantics")
+        self.device = config.get("job.device")
+        self.crp_beta = self.get_option("crp_beta")
+        self.max_nr_semantics = self.get_option("nr_embeds")
         self.vocab_size = vocab_size
 
-    def initialize_semantics(self, nr_entity_types):
-        E, M, S = self.vocab_size, self.max_nr_semantics, nr_entity_types
+    def initialize_semantics(self, types_tensor):
+        E, S = types_tensor.shape
+        M = self.max_nr_semantics
 
-        self.nr_semantics = torch.zeros((E), device=device).long()
-        self.semantics = torch.zeros((E,M,S), device=device).bool() 
+        self.nr_semantics = torch.ones((E), device=self.device).long()
+        self.semantics = torch.zeros((E,S,M), device=self.device).bool() 
 
+        self.semantics[:,:,0] = types_tensor
+        
 
-    def update(self, idxs, embeds, types, likelihood, similarity_fn):
+    def update(self, idxs, embeds, types, loglikelihood, similarity_fn):
         h_idx, r_idx, t_idx = idxs
         h_emb, r_emb, t_emb = embeds
         h_typ, r_typ, t_typ = types
         r_typ_h, r_typ_t = r_typ
         
         prob_new_component = self.crp_beta * torch.exp(-r_emb.sum(dim=1))
-        prob_new = prob_new_component / (prob_new_component + likelihood)
+        prob_new = prob_new_component / (prob_new_component + torch.exp(loglikelihood))
 
         # TODO make sure this is fast enough compared to sample(0,1) < prob_new
         dist = torch.distributions.bernoulli.Bernoulli(prob_new)
 
         # TODO: decide wether to replace this with sampling head/tail randomly
-        for e_idx, e_typ, r_typ in ((h_idx,h_typ,r_typ_h),(t_idx,t_typ,r_typ_t)):
-            candidates = dist.sample().bool()
+        for e_idx, e_typ, r_typ_ in ((h_idx,h_typ,r_typ_h),(t_idx,t_typ,r_typ_t)):
+
+            full = self.nr_semantics[e_idx] >= self.max_nr_semantics
+
+            candidates = dist.sample().bool() & ~full
             candidate_idx = candidates * e_idx
             candidate_idx = candidate_idx[candidates]                   # C
+            
+            if len(candidate_idx) is 0:
+                continue
+            else:
+                print("WE IN BUSINESS")
+                print(len(candidate_idx))
+                pass
 
-            candidate_semantics = self.semantics[candidate_idx,:,:]     # C x M x S
             candidate_nr_semantics = self.nr_semantics[candidate_idx]   # C
+            candidate_semantics = self.semantics[candidate_idx,:,:]     # C x S x M
 
-            sim = similarity_fn(candidate_semantics, r_typ)             # C x M
-            max_sim = sim.max(dim=1)                                    # C
+            # Note that we also calculate similarity with the 'empty' semantics-vectors, 
+            # because otherwise we could no longer have batched operations 
+            # (different entities have different number of semantics)
+            r_typ_max = r_typ_[candidates].unsqueeze(2)
+            sim = similarity_fn(candidate_semantics, r_typ_max)         # C x M
+            max_sim, _ = sim.max(dim=1)                                 # C
 
             new_semantics_prob = 1 - max_sim                            # C
             new_dist = torch.distributions.bernoulli.Bernoulli(new_semantics_prob)
-            to_be_extended = new_dist.sample().bool()                   # C
+            to_be_extended = new_dist.sample().bool()                   # EXT
             to_be_extended_idx = to_be_extended * candidate_idx
             to_be_extended_idx = to_be_extended_idx[to_be_extended]
 
             self.semantics[                                     \
-                    to_be_extended_idx,                         \
+                    to_be_extended_idx, :,                      \
                     self.nr_semantics[to_be_extended_idx],      \
-                ] = r_typ
+                ] = r_typ_[candidates][to_be_extended]
             self.nr_semantics[to_be_extended_idx] += 1
-
 
     def embed(self, indexes):
         embeddings = self._embed(self.base_embedder.embed(indexes))     # B x D x M
@@ -71,22 +88,29 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
 
         # mark embeddings that are inactive
         nr_semantics = self.nr_semantics[indexes].unsqueeze(1)          # B x 1
-
         nr_semantics = nr_semantics.expand(-1, M)                       # B x M
 
-        idxs = torch.arange(M).unsqueeze(0).expand(B, -1)               # B x M
-        inactive = nr_semantics >= idxs 
-        inactive = inactive.unsqueeze(1).expand(-1, )                   # B x D x M
-
+        idxs = torch.arange(M, device=self.device) \
+                .unsqueeze(0).expand(B, -1)                             # B x M
+        inactive = idxs >= nr_semantics 
+        inactive = inactive.unsqueeze(1).expand(-1, D, -1)              # B x D x M
+      
         embeddings[inactive] = -1
         return embeddings
 
 
     def embed_all(self):
         embeddings = self._embed(self.base_embedder.embed_all())
-        
+        E, D, M = embeddings.shape
+
         # mark embeddings that are inactive
-        nr_semantics = self.nr_semantics
+        nr_semantics = self.nr_semantics.unsqeeze(1)
+        nr_semantics = nr_semantics.expand(-1, M)
 
+        idxs = torch.arange(M, device=self.device) \
+                .unsqueeze(0).expand(E, -1)
+        inactive = idxs >= nr_semantics
+        inactive = inactive.unsqueeze(1).expand(-1, D, -1)
 
+        embeddings[inactive] = -1
         return embeddings
