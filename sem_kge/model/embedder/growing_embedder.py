@@ -5,7 +5,11 @@ from kge.model import KgeEmbedder
 from sem_kge.model.embedder import MultipleEmbedder
 
 class GrowingMultipleEmbedder(MultipleEmbedder):
-    """ """
+    """ Embedder that associates each entity with multiple embeddings, and allows
+    the number of embeddings for each entity to grow according to a Chinese 
+    Restaurant Process. It was presented in the paper "TransT: Type-Based 
+    Multiple Embedding Representations for Knowledge Graph Completion" by 
+    Ma et al.   """
 
     def __init__(
         self, config, dataset, configuration_key, 
@@ -29,6 +33,7 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         self.nr_semantics = torch.ones((E), device=self.device).long()
         self.semantics = torch.zeros((E,S,M), device=self.device).bool() 
 
+        # The semantics of the first vector of each entity is simply its own type set.
         self.semantics[:,:,0] = types_tensor
         
 
@@ -38,13 +43,15 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         h_typ, r_typ, t_typ = types
         r_typ_h, r_typ_t = r_typ
         
+        # The following probability represents the first term in formula 9 in the TransT paper.
+        # Because the probability is a product, we can sample from the two terms separately.
         prob_new_component = self.crp_beta * torch.exp(-r_emb.sum(dim=1))
         prob_new = prob_new_component / (prob_new_component + torch.exp(loglikelihood))
 
-        # TODO make sure this is fast enough compared to sample(0,1) < prob_new
         dist = torch.distributions.bernoulli.Bernoulli(prob_new)
 
-        # TODO: decide wether to replace this with sampling head/tail randomly
+        # TODO: decide wether to replace this with sampling head/tail randomly 
+        #           (the original implementation does this)
         for e_idx, e_typ, r_typ_ in ((h_idx,h_typ,r_typ_h),(t_idx,t_typ,r_typ_t)):
 
             full = self.nr_semantics[e_idx] >= self.max_nr_semantics
@@ -54,15 +61,14 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
             candidate_idx = candidate_idx[candidates]                   # C
             
             if len(candidate_idx) is 0:
+                # There are no candidates so we move on.
                 continue
-            else:
-                print("WE IN BUSINESS")
-                print(len(candidate_idx))
-                pass
 
             candidate_nr_semantics = self.nr_semantics[candidate_idx]   # C
             candidate_semantics = self.semantics[candidate_idx,:,:]     # C x S x M
 
+            # The following code calculates the right side of formula 9 in the TransT paper.
+            
             # Note that we also calculate similarity with the 'empty' semantics-vectors, 
             # because otherwise we could no longer have batched operations 
             # (different entities have different number of semantics)
@@ -76,6 +82,8 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
             to_be_extended_idx = to_be_extended * candidate_idx
             to_be_extended_idx = to_be_extended_idx[to_be_extended]
 
+            # The semantics of the newly added vector is the set of common types
+            #   of the relation in the triple.
             self.semantics[                                     \
                     to_be_extended_idx, :,                      \
                     self.nr_semantics[to_be_extended_idx],      \
