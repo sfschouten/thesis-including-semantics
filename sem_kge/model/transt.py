@@ -154,7 +154,6 @@ class TransT(KgeModel):
                 temp = o_typ[i:j,:].T.unsqueeze(0)
                 logprior.append(self._log_prior(s_typ, p_typ_h, p_typ_t, temp, corrupted))
             logprior = torch.cat(logprior, dim=1)
-
         elif combine == "_po":
             p_typ_h, p_typ_t, o_typ = p_typ_h.unsqueeze(2), p_typ_t.unsqueeze(2), o_typ.unsqueeze(2)
             logprior = [];  N = s_typ.shape[0]
@@ -163,12 +162,10 @@ class TransT(KgeModel):
                 temp = s_typ[i:j,:].T.unsqueeze(0)
                 logprior.append(self._log_prior(temp, p_typ_h, p_typ_t, o_typ, corrupted))
             logprior = torch.cat(logprior, dim=1)
-
         elif combine == "s_o":
             raise NotImplementedError()
 
         return logprior
-
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         """
@@ -194,7 +191,6 @@ class TransT(KgeModel):
         logprior = self._log_prior(s_t, r_t[0], r_t[1], o_t, direction)
 
         M = 1 # by default only 1 embedding
-
         w_s, w_o = self.weights[s], self.weights[o]                 # B x M
         if "MultipleEmbedder" in str(type(self.get_s_embedder())):
             nr_embeddings = self.get_s_embedder().get_nr_embeddings()
@@ -227,9 +223,10 @@ class TransT(KgeModel):
         w_s, w_o = w_s.unsqueeze(2), w_o.unsqueeze(1)
 
         # perform modified logsumexp trick
-        c,_ = part_loglikelihoods.max(dim=1, keepdims=True)
-        c,_ =                   c.max(dim=2, keepdims=True)
-        weighted_exp = w_s * w_o * (part_loglikelihoods - c).exp()
+        x = part_loglikelihoods
+        c,_ = x.max(dim=1, keepdims=True)
+        c,_ = c.max(dim=2, keepdims=True)
+        weighted_exp = w_s * w_o * (x - c).exp()
         loglikelihood = c.squeeze() + weighted_exp.sum(dim=1).sum(dim=1).log()
     
         if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())):

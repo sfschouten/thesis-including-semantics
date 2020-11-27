@@ -33,7 +33,6 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         """ returns a tensor with the number of embeddings for each object in vocabulary """
         return self.nr_semantics 
 
-
     def initialize_semantics(self, types_tensor):
         E, S = types_tensor.shape
         M = self.max_nr_semantics
@@ -43,7 +42,6 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         # The semantics of the first vector of each entity is simply its own type set.
         self.semantics[:,:,0] = types_tensor
         
-
     def update(self, idxs, embeds, types, loglikelihood, similarity_fn):
         h_idx, r_idx, t_idx = idxs
         h_emb, r_emb, t_emb = embeds
@@ -54,7 +52,6 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         # Because the probability is a product, we can sample from the two terms separately.
         prob_new_component = self.crp_beta * torch.exp(-r_emb.abs().sum(dim=1))
         prob_new = prob_new_component / (prob_new_component + loglikelihood.exp())
-        prob_new.fill_(0.0001)
         dist = torch.distributions.bernoulli.Bernoulli(prob_new)
 
         # TODO: decide wether to replace this with sampling head/tail randomly 
@@ -88,7 +85,7 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
             to_be_extended_idx = to_be_extended * candidate_idx
             to_be_extended_idx = to_be_extended_idx[to_be_extended]
 
-            self.config.log(f"extended entities: {to_be_extended_idx.tolist()}")
+            #self.config.log(f"\nextended: {to_be_extended_idx.tolist()}")
 
             # The semantics of the newly added vector is the set of common types
             #   of the relation in the triple.

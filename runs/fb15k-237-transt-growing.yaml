@@ -10,7 +10,7 @@ import:
 - growing_embedder
 growing_embedder:
   dim: 128
-  nr_embeds: 2
+  nr_embeds: 5
   initialize: uniform_
   initialize_args:
     normal_:
@@ -47,7 +47,7 @@ train:
   auto_correct: true
   batch_size: 128
   loss: margin_ranking
-  loss_arg: 3.0
+  loss_arg: 3.5
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95
@@ -76,7 +76,7 @@ transt:
       p: -1.0
     regularize_weight: 1.8180176908040284e-07
 valid:
-  every: 1
+  every: 5
   early_stopping:
     min_threshold:
       epochs: 50

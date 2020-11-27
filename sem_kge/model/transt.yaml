@@ -8,7 +8,7 @@ transt:
   relation_embedder: 
     type: lookup_embedder
     +++: +++
-  l_norm: 2.
+  l_norm: 1.
   lambda_head: 1.
   lambda_relation: 1.
   lambda_tail: 1.
