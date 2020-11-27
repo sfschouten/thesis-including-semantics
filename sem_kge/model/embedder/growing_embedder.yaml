@@ -8,7 +8,7 @@ growing_embedder:
     +++: +++
   dim: 128
   nr_embeds: 4              # maximum number of semantics
-  crp_beta: 10              # CRP scaling parameter
+  crp_beta: 0.0001          # CRP scaling parameter
   initialize: normal_         # options: [xavier, uniform, normal]
   initialize_args:          
     +++: +++

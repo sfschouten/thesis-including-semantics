@@ -25,12 +25,19 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         self.crp_beta = self.get_option("crp_beta")
         self.max_nr_semantics = self.get_option("nr_embeds")
         self.vocab_size = vocab_size
+        
+        E = self.vocab_size
+        self.nr_semantics = torch.ones((E), device=self.device).long()
+
+    def get_nr_embeddings(self):
+        """ returns a tensor with the number of embeddings for each object in vocabulary """
+        return self.nr_semantics 
+
 
     def initialize_semantics(self, types_tensor):
         E, S = types_tensor.shape
         M = self.max_nr_semantics
 
-        self.nr_semantics = torch.ones((E), device=self.device).long()
         self.semantics = torch.zeros((E,S,M), device=self.device).bool() 
 
         # The semantics of the first vector of each entity is simply its own type set.
@@ -45,9 +52,9 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         
         # The following probability represents the first term in formula 9 in the TransT paper.
         # Because the probability is a product, we can sample from the two terms separately.
-        prob_new_component = self.crp_beta * torch.exp(-r_emb.sum(dim=1))
-        prob_new = prob_new_component / (prob_new_component + torch.exp(loglikelihood))
-
+        prob_new_component = self.crp_beta * torch.exp(-r_emb.abs().sum(dim=1))
+        prob_new = prob_new_component / (prob_new_component + loglikelihood.exp())
+        prob_new.fill_(0.0001)
         dist = torch.distributions.bernoulli.Bernoulli(prob_new)
 
         # TODO: decide wether to replace this with sampling head/tail randomly 
@@ -55,7 +62,6 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
         for e_idx, e_typ, r_typ_ in ((h_idx,h_typ,r_typ_h),(t_idx,t_typ,r_typ_t)):
 
             full = self.nr_semantics[e_idx] >= self.max_nr_semantics
-
             candidates = dist.sample().bool() & ~full
             candidate_idx = candidates * e_idx
             candidate_idx = candidate_idx[candidates]                   # C
@@ -82,6 +88,8 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
             to_be_extended_idx = to_be_extended * candidate_idx
             to_be_extended_idx = to_be_extended_idx[to_be_extended]
 
+            self.config.log(f"extended entities: {to_be_extended_idx.tolist()}")
+
             # The semantics of the newly added vector is the set of common types
             #   of the relation in the triple.
             self.semantics[                                     \
@@ -90,35 +98,3 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
                 ] = r_typ_[candidates][to_be_extended]
             self.nr_semantics[to_be_extended_idx] += 1
 
-    def embed(self, indexes):
-        embeddings = self._embed(self.base_embedder.embed(indexes))     # B x D x M
-        B, D, M = embeddings.shape
-
-        # mark embeddings that are inactive
-        nr_semantics = self.nr_semantics[indexes].unsqueeze(1)          # B x 1
-        nr_semantics = nr_semantics.expand(-1, M)                       # B x M
-
-        idxs = torch.arange(M, device=self.device) \
-                .unsqueeze(0).expand(B, -1)                             # B x M
-        inactive = idxs >= nr_semantics 
-        inactive = inactive.unsqueeze(1).expand(-1, D, -1)              # B x D x M
-      
-        embeddings[inactive] = -1
-        return embeddings
-
-
-    def embed_all(self):
-        embeddings = self._embed(self.base_embedder.embed_all())
-        E, D, M = embeddings.shape
-
-        # mark embeddings that are inactive
-        nr_semantics = self.nr_semantics.unsqeeze(1)
-        nr_semantics = nr_semantics.expand(-1, M)
-
-        idxs = torch.arange(M, device=self.device) \
-                .unsqueeze(0).expand(E, -1)
-        inactive = idxs >= nr_semantics
-        inactive = inactive.unsqueeze(1).expand(-1, D, -1)
-
-        embeddings[inactive] = -1
-        return embeddings

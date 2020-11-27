@@ -39,6 +39,7 @@ class TransT(KgeModel):
         config.log("Creating typeset binary vectors")
 
         device = self.config.get("job.device")
+        self.device=device
 
         # We represent each set as a binary vector.
         # A 'True' value means that the type corresponding
@@ -69,8 +70,8 @@ class TransT(KgeModel):
         for triple in triples:
             h,r,t = triple
 
-            type_head_counts[r] += types_tensor[triple[0]]
-            type_tail_counts[r] += types_tensor[triple[2]]
+            type_head_counts[r] += types_tensor[h]
+            type_tail_counts[r] += types_tensor[t]
             type_totals[r] += 1
 
         RHO = self.get_option("rho")
@@ -84,13 +85,30 @@ class TransT(KgeModel):
         self._lambda_relation = self.get_option("lambda_relation")
         self._lambda_tail = self.get_option("lambda_tail")
         
+        if not self.get_s_embedder() is self.get_o_embedder():
+            raise NotImplementedError("TransT currently does not support \
+                the use of different embedders for subjects and objects.")
+
+        # TODO once namespace issue is solved, replace string-based checks
+        # with proper type-instance checks.
+
         # TODO Rather than checking for a specific class, create interface
         # for all embedders that might need type information
 
         # initialize the GrowingEmbeddersEmbedders
-        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())) \
-        and self.get_s_embedder() is self.get_o_embedder():
+        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())):
             self.get_s_embedder().initialize_semantics(types_tensor)
+ 
+        # initialize the distribution weights
+        if "MultipleEmbedder" in str(type(self.get_s_embedder())):
+            nr_embeddings = self.get_s_embedder().get_nr_embeddings()
+            M = self.get_s_embedder().nr_embeds
+            idxs = torch.arange(M, device=device).unsqueeze(0).expand(N,-1)
+            weights = (idxs < nr_embeddings.unsqueeze(1).expand(-1,M)).float()
+            weights /= nr_embeddings.unsqueeze(1)
+        else:
+            weights = torch.ones((N,1), device=device) 
+        self.weights = torch.nn.Parameter(weights)
 
     def _s(self, T_1, T_2):
         intersection_size = (T_1 & T_2).sum(dim=1).float()
@@ -155,11 +173,15 @@ class TransT(KgeModel):
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         """
         """
+        B = s.shape[0]
+        device = self.device
+
         s, p, o = s.long(), p.long(), o.long()
         s_emb = self.get_s_embedder().embed(s)
         p_emb = self.get_p_embedder().embed(p)
         o_emb = self.get_o_embedder().embed(o)
-        
+       
+        # expand dimensions in case 
         for emb in (s_emb, o_emb):
             if emb.ndim == 2:
                 emb.unsqueeze_(2)
@@ -170,27 +192,47 @@ class TransT(KgeModel):
         o_t = self.types_tensor[o]
 
         logprior = self._log_prior(s_t, r_t[0], r_t[1], o_t, direction)
-       
-        count = 0
-        loglikelihood = 0
+
+        M = 1 # by default only 1 embedding
+
+        w_s, w_o = self.weights[s], self.weights[o]                 # B x M
+        if "MultipleEmbedder" in str(type(self.get_s_embedder())):
+            nr_embeddings = self.get_s_embedder().get_nr_embeddings()
+            nr_s = nr_embeddings[s].unsqueeze(1).expand(-1,M)
+            nr_o = nr_embeddings[o].unsqueeze(1).expand(-1,M)
+
+            M = self.get_s_embedder().nr_embeds
+            idxs = torch.arange(M, device=device).unsqueeze(0).expand(B,-1)
+
+            w_s[idxs >= nr_s] = float('-inf')
+            w_o[idxs >= nr_o] = float('-inf')
+        w_s, w_o = F.softmax(w_s, dim=1), F.softmax(w_o, dim=1)     # B x M
+
+        part_loglikelihoods = torch.full((B,M,M), float('-inf'), device=device)
         for i in range(s_emb.shape[2]):
             for j in range(o_emb.shape[2]):
+
+                # check if whole batch inactive and skip if so
+                if (w_s[:,i] == 0).all() or (w_o[:,j] == 0).all():
+                    continue
+               
                 s_emb_i = s_emb[:,:,i]
                 o_emb_j = o_emb[:,:,j]
- 
-                # check if unused and skip if so
-                if (s_emb_i == -1).all() or (o_emb_j == -1).all():
-                    continue
-                else:
-                    count += 1
 
-                loglikelihood += self._scorer.score_emb(
+                # weights of inactive vectors will be 0, so won't be summed
+                loglikelihood = self._scorer.score_emb(
                     s_emb_i, p_emb, o_emb_j, combine="spo"
                 ).squeeze()
-        loglikelihood /= count 
+                part_loglikelihoods[:,i,j] = loglikelihood
+        w_s, w_o = w_s.unsqueeze(2), w_o.unsqueeze(1)
 
-        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())) \
-        and self.get_s_embedder() is self.get_o_embedder():
+        # perform modified logsumexp trick
+        c,_ = part_loglikelihoods.max(dim=1, keepdims=True)
+        c,_ =                   c.max(dim=2, keepdims=True)
+        weighted_exp = w_s * w_o * (part_loglikelihoods - c).exp()
+        loglikelihood = c.squeeze() + weighted_exp.sum(dim=1).sum(dim=1).log()
+    
+        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())):
             self.get_s_embedder().update(
                 (s,p,o),(s_emb,p_emb,o_emb),(s_t,r_t,o_t),
                 loglikelihood, self._s)
@@ -211,6 +253,8 @@ class TransT(KgeModel):
     def score_sp_po(
         self, s: Tensor, p: Tensor, o: Tensor, entity_subset: Tensor = None
     ) -> Tensor:
+        B = s.shape[0]
+        device = self.device
 
         s, p, o = s.long(), p.long(), o.long()
         s_e = self.get_s_embedder().embed(s)
@@ -225,25 +269,14 @@ class TransT(KgeModel):
         if entity_subset is not None:
             entity_subset = entity_subset.long()
             all_entity_types = self.types_tensor[entity_subset]
+            all_entities = self.get_s_embedder().embed(entity_subset)
+            w_all = self.weights[entity_subset]
         else:
             all_entity_types = self.types_tensor
-        
-        if self.get_s_embedder() is self.get_o_embedder():
-            if entity_subset is not None:
-                all_entities = self.get_s_embedder().embed(entity_subset)
-            else:
-                all_entities = self.get_s_embedder().embed_all()
-            all_objects = all_entities
-            all_subjects = all_entities
-        else:
-            if entity_subset is not None:
-                all_objects = self.get_o_embedder().embed(entity_subset)
-                all_subjects = self.get_s_embedder().embed(entity_subset)
-            else:
-                all_objects = self.get_o_embedder().embed_all()
-                all_subjects = self.get_s_embedder().embed_all()
-        
-        for emb in (s_e, o_e, all_subjects, all_objects):
+            all_entities = self.get_s_embedder().embed_all()
+            w_all = self.weights
+                       
+        for emb in (s_e, o_e, all_entities):
             if emb.ndim == 2:
                 emb.unsqueeze_(2)
 
@@ -251,31 +284,58 @@ class TransT(KgeModel):
                 s_t, p_t, all_entity_types, "o", "sp_")
         po_logprior = self._batch_log_prior(
                 all_entity_types, p_t, o_t, "s", "_po")
-        
-        sp_loglikelihood = 0
-        po_loglikelihood = 0
+       
+        M = 1 # by default only 1 embedding
+        N = w_all.shape[0]
+        if "MultipleEmbedder" in str(type(self.get_s_embedder())):
+            nr_embeddings = self.get_s_embedder().get_nr_embeddings()
+            nr_all = nr_embeddings.unsqueeze(1).expand(-1,M)
+
+            M = self.get_s_embedder().nr_embeds
+            idxs = torch.arange(M, device=device).unsqueeze(0).expand(N,-1)
+            w_all[idxs >= nr_all] = float('-inf')
+        w_all = F.softmax(w_all, dim=1)
+        w_s, w_o = w_all[s], w_all[o]
+
+        sp_loglike_part = torch.full((B,N,M,M), float('-inf'), device=device)
+        po_loglike_part = torch.full((B,N,M,M), float('-inf'), device=device)
         for i in range(s_e.shape[2]):
             for j in range(o_e.shape[2]):
+ 
+                # check if whole batch inactive and skip if so
+                if not ((w_s[:,i] == 0).all() or (w_all[:,j] == 0).all()):
+                    s_emb_i = s_e[:,:,i]
+                    all_entities_j = all_entities[:,:,j]
 
-                # TODO: check for empty and skip
+                    sp_loglikelihood = self._scorer.score_emb(
+                        s_emb_i, p_e, all_entities_j, combine="sp_"
+                    ).squeeze()
+                    sp_loglike_part[:,:,i,j] = sp_loglikelihood
 
-                s_emb_i = s_e[:,:,i]
-                o_emb_j = o_e[:,:,j]
-                all_subjects_i = all_subjects[:,:,i]
-                all_objects_j = all_objects[:,:,j]
-                
-                sp_loglikelihood += self._scorer.score_emb(
-                        s_emb_i, p_e, all_objects_j, combine="sp_"
-                    )
-                po_loglikelihood += self._scorer.score_emb(
-                        all_subjects_i, p_e, o_emb_j, combine="_po"
-                    )
+                if not ((w_all[:,i] == 0).all() or (w_o[:,j] == 0).all()):
+                    o_emb_j = o_e[:,:,j]
+                    all_entities_i = all_entities[:,:,i]
 
+                    po_loglikelihood = self._scorer.score_emb(
+                        all_entities_i, p_e, o_emb_j, combine="_po"
+                    ).squeeze()
+                    po_loglike_part[:,:,i,j] = po_loglikelihood
+        
+        w_sp = w_s.view(B, 1, M, 1) * w_all.view(1, N, 1, M)
+        w_po = w_o.view(B, 1, 1, M) * w_all.view(1, N, M, 1)
 
+        # perform modified logsumexp trick
+        def logsumexp(x, w):
+            c,_ = x.max(dim=2, keepdims=True)
+            c,_ = c.max(dim=3, keepdims=True)
+            weighted_exp = w * (x - c).exp()
+            return c.squeeze() + weighted_exp.sum(dim=2).sum(dim=2).log()
+
+        sp_loglikelihood = logsumexp(sp_loglike_part, w_sp)
+        po_loglikelihood = logsumexp(po_loglike_part, w_po)
+        
         logprior = torch.cat((sp_logprior, po_logprior), dim=1)
         loglikelihood = torch.cat((sp_loglikelihood, po_loglikelihood), dim=1)
-        loglikelihood /= s_e.shape[2] * o_e.shape[2] #TODO replace with appropriate value after Growing is added
-
 
         logposterior = logprior + loglikelihood
         return logposterior 

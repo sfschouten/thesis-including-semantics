@@ -5,7 +5,9 @@ from kge.model import KgeEmbedder
 
 
 class MultipleEmbedder(KgeEmbedder):
-    """ """
+    """ 
+    Embedder that assigns multiple embeddings to each entity/relation.
+    """
 
     def __init__(
         self, config, dataset, configuration_key, 
@@ -16,15 +18,13 @@ class MultipleEmbedder(KgeEmbedder):
             config, dataset, configuration_key, init_for_load_only=init_for_load_only
         )
 
+        self.vocab_size = vocab_size
+
+        # we construct a base embedder with dimensionality of nr_embeds*dim
         dimension = self.get_option("dim")
         self.nr_embeds = self.get_option("nr_embeds")
-
-        lookup_dim = dimension * self.nr_embeds
-
-        config.set(
-            self.configuration_key + ".base_embedder.dim",
-            lookup_dim
-        )
+        base_dim = dimension * self.nr_embeds
+        config.set(self.configuration_key + ".base_embedder.dim", base_dim)
 
         # initialize base_embedder
         if self.configuration_key + ".base_embedder.type" not in config.options:
@@ -38,14 +38,19 @@ class MultipleEmbedder(KgeEmbedder):
 
         self.dropout = self.get_option("dropout")
 
-
-
+    def get_nr_embeddings(self):
+        """ returns a tensor with the number of embeddings for each object in vocabulary """
+        device = self.config.get("job.device")
+        return torch.ones((self.vocab_size), device=device) * self.nr_embeds
 
     def _embed(self, embeddings):
+        # apply dropout
         if self.dropout > 0:
             embeddings = torch.nn.functional.dropout(
                 embeddings, p=self.dropout, training=self.training
             )
+
+        # reshape and return
         B, _ = embeddings.shape
         return embeddings.reshape(B, -1, self.nr_embeds)
 
