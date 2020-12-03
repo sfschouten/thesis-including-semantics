@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import yaml
 import os.path
@@ -16,6 +18,7 @@ if __name__ == "__main__":
 
     print(f"Preprocessing type information in {args.folder}...")
 
+    YAML = "dataset.yaml"
     ENTITY_TYPES = "entity_types.txt"
     ENTITY_TYPES_IDS = "entity_types.del"
     
@@ -53,6 +56,13 @@ if __name__ == "__main__":
     print("Done writing.")
 
 
-    
+    print("Editing dataset.yaml")
+    with open(args.folder + "/" + YAML, "r") as f:
+        yaml_file = yaml.load(f, Loader=yaml.FullLoader)
 
+    yaml_file["dataset"]["files.entity_types.filename"] = ENTITY_TYPES_IDS
+    yaml_file["dataset"]["files.entity_types.type"] = "idmap" 
+    yaml_file["dataset"]["num_types"] = len(types)
 
+    with open(args.folder + "/" + YAML, "w") as f:
+        yaml.dump(yaml_file, f)
