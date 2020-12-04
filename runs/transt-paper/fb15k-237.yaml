@@ -1,0 +1,42 @@
+plugins:
+- sem_kge
+job:
+  external_tracking:
+    weights-and-biases:
+      project: sem_kge
+      group: transt
+dataset:
+  name: fb15k-237-typed
+eval:
+  batch_size: 256
+  metrics_per:
+    relation_type: true
+  trace_level: example
+import:
+- transt
+lookup_embedder:
+  dim: 300
+model: transt
+train:
+# auto_correct: true
+  optimizer: SGD
+  batch_size: 128
+  loss: margin_ranking
+  loss_arg: 3.5
+  max_epochs: 400
+  optimizer_args:
+    lr: 0.00025
+  type: negative_sampling
+transt:
+  lambda_head: 1.
+  lambda_relation: 0.
+  lambda_tail: 1.
+  l_norm: 1.0
+valid:
+  every: 5
+  early_stopping:
+    min_threshold:
+      epochs: 50
+      metric_value: 0.05
+    patience: 10
+
