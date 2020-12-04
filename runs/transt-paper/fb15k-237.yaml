@@ -16,7 +16,8 @@ import:
 - transt
 lookup_embedder:
   dim: 300
-  normalize: 2
+  normalize:
+    p: 2
 # initialize: ...
 model: transt
 train:
