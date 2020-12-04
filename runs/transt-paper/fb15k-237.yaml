@@ -16,6 +16,7 @@ import:
 - transt
 lookup_embedder:
   dim: 300
+# initialize: ...
 model: transt
 train:
 # auto_correct: true
@@ -33,10 +34,7 @@ transt:
   lambda_tail: 1.
   l_norm: 1.0
 valid:
-  every: 5
+  every: 10
   early_stopping:
-    min_threshold:
-      epochs: 50
-      metric_value: 0.05
     patience: 10
 
