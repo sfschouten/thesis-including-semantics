@@ -115,33 +115,31 @@ class TransT(KgeModel):
         other_size = T_1.sum(dim=1).float()
         
         result = intersection_size / other_size
-        result += 1e-18 # prevent log(0)
+        result += 1e-2 #18 # prevent log(0)
         
         # If |T_1| = 0, than the numerator and denominator are both 0
-        #   therefore the outcome should be ??? TODO: check
-        #    - no information -> 0.5
-        #    - 0/0 =?= 1
+        #   therefore the outcome should be ... TODO 
         result[other_size.expand_as(result) == 0] = 0.5
         return result
 
     def _log_prior(self, T_h, T_r_head, T_r_tail, T_t, corrupted):
-        result = 0
+        result1 = 0; result2 = 0
         if   corrupted == "s":
             if self._lambda_head > 0:
-                result += self._s(T_r_head, T_h).log() 
+                result1 = self._s(T_r_head, T_h).log() 
             if self._lambda_relation > 0:
-                result += self._s(T_t, T_h).log()
+                result2 = self._s(T_t, T_h).log()
         elif corrupted == "p":
             if self._lambda_head > 0:
-                result += self._s(T_r_head, T_h).log() 
+                result1 = self._s(T_r_head, T_h).log() 
             if self._lambda_tail > 0:
-                result += self._s(T_r_tail, T_t).log()
+                result2 = self._s(T_r_tail, T_t).log()
         elif corrupted == "o":
             if self._lambda_tail > 0:
-                result += self._s(T_r_tail, T_t).log() 
+                result1 = self._s(T_r_tail, T_t).log() 
             if self._lambda_relation > 0:
-                result += self._s(T_h, T_t).log()
-        return result
+                result2 = self._s(T_h, T_t).log()
+        return result1 + result2
 
     def _batch_log_prior(self, s_typ, p_typ, o_typ, corrupted: str, combine: str):
         BS = 32 #TODO: make this configurable
@@ -203,7 +201,7 @@ class TransT(KgeModel):
             w_s[idxs >= nr_s] = float('-inf')
             w_o[idxs >= nr_o] = float('-inf')
         w_s, w_o = F.softmax(w_s, dim=1), F.softmax(w_o, dim=1)     # B x M
-
+        
         part_loglikelihoods = torch.full((B,M,M), float('-inf'), device=device)
         for i in range(s_emb.shape[2]):
             for j in range(o_emb.shape[2]):
