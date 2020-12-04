@@ -16,8 +16,6 @@ import:
 - transt
 lookup_embedder:
   dim: 300
-  normalize:
-    p: 2.
 # initialize: ...
 model: transt
 train:
@@ -35,6 +33,9 @@ transt:
   lambda_relation: 0.
   lambda_tail: 1.
   l_norm: 1.0
+  entity_embedder:
+    normalize:
+      p: 2.
 valid:
   every: 10
   early_stopping:
