@@ -20,11 +20,11 @@ lookup_embedder:
 model: transt
 train:
 # auto_correct: true
-  optimizer: SGD
   batch_size: 128
   loss: margin_ranking
   loss_arg: 3.5
   max_epochs: 400
+  optimizer: SGD
   optimizer_args:
     lr: 0.00025
   type: negative_sampling

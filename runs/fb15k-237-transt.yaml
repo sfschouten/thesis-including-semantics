@@ -1,3 +1,10 @@
+plugins:
+- sem_kge
+job:
+  external_tracking:
+    weights-and-biases:
+      project: sem_kge
+      group: transt
 dataset:
   name: fb15k-237-typed
 eval:
@@ -8,30 +15,31 @@ eval:
 import:
 - transt
 lookup_embedder:
-  dim: 128
-  initialize: uniform_
-  initialize_args:
-    normal_:
-      mean: 0.0
-      std: 3.5688807324453804e-05
-    uniform_:
-      a: -1.0000000000065512e-05
-    xavier_normal_:
-      gain: 1.0
-    xavier_uniform_:
-      gain: 1.0
-  regularize: ''
+  dim: 300
+#  dim: 128
+#  initialize: uniform_
+#  initialize_args:
+#    normal_:
+#      mean: 0.0
+#      std: 3.5688807324453804e-05
+#    uniform_:
+#      a: -1.0000000000065512e-05
+#    xavier_normal_:
+#      gain: 1.0
+#    xavier_uniform_:
+#      gain: 1.0
+#  regularize: ''
 model: transt 
-negative_sampling:
-  num_samples:
-    o: 192
-    p: -1
-    s: 61
+#negative_sampling:
+#  num_samples:
+#    o: 192
+#    p: -1
+#    s: 61
 train:
-  auto_correct: true
+#  auto_correct: true
   batch_size: 128
   loss: margin_ranking
-  loss_arg: 3.0
+  loss_arg: 3.5
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95
@@ -41,25 +49,26 @@ train:
   max_epochs: 400
   optimizer: Adam
   optimizer_args:
-    lr: 0.00030000000000000014
+    lr: 0.0003
   type: negative_sampling
 transt:
   lambda_head: 1.
   lambda_relation: 0.
   lambda_tail: 1.
   entity_embedder:
-    dropout: -0.3519595685173064
+#    dropout: -0.3519595685173064
     normalize:
-      p: -1.0
-    regularize_weight: 7.469488745511875e-12
-  l_norm: 2.0
-  relation_embedder:
-    dropout: -0.17305121371616672
-    normalize:
-      p: -1.0
-    regularize_weight: 1.8180176908040284e-07
+       p: 2.
+#      p: -1.0
+#    regularize_weight: 7.469488745511875e-12
+  l_norm: 1.0
+#  relation_embedder:
+#    dropout: -0.17305121371616672
+#    normalize:
+#      p: -1.0
+#    regularize_weight: 1.8180176908040284e-07
 valid:
-  every: 1
+  every: 5
   early_stopping:
     min_threshold:
       epochs: 50
