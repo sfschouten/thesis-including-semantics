@@ -64,5 +64,10 @@ if __name__ == "__main__":
     yaml_file["dataset"]["files.entity_types.type"] = "idmap" 
     yaml_file["dataset"]["num_types"] = len(types)
 
+    old_name = yaml_file["dataset"]["name"]
+    suffix = "-typed"
+    if not old_name.endswith(suffix):
+        yaml_file["dataset"]["name"] = old_name + suffix
+
     with open(args.folder + "/" + YAML, "w") as f:
         yaml.dump(yaml_file, f)
