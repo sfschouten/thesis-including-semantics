@@ -1,3 +1,10 @@
+plugins:
+- sem_kge
+job:
+  external_tracking:
+    weights-and-biases:
+      project: sem_kge
+      group: transt
 dataset:
   name: fb15k-237-typed
 eval:
