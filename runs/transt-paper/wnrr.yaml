@@ -27,9 +27,9 @@ train:
     lr: 0.1                     # 0.001
   type: negative_sampling
 transt:
-  lambda_head: 0.               # 0
-  lambda_relation: 1.           # 1 (but sometimes 0, depending? unclear when)
-  lambda_tail: 0.               # 0 
+  lambda_head: -5.              # sigmoid(-5) =~= 0
+  lambda_relation: 5.           # sigmoid(5) =~= 1, in paper is 1 or 0 depending on relation
+  lambda_tail: -5.              # 0 
   l_norm: 1.0                   # 1
   entity_embedder:
     normalize:

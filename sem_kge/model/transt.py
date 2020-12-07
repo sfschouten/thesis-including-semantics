@@ -137,14 +137,14 @@ class TransT(KgeModel):
     def _log_prior(self, T_h, T_r_head, T_r_tail, T_t, corrupted):
         result1 = 0; result2 = 0
         if   corrupted == "s":
-            result1 = self._lambda_head * self._s(T_r_head, T_h).log() 
-            result2 = self._lambda_relation * self._s(T_t, T_h).log()
+            result1 = self._lambda_head.sigmoid() * self._s(T_r_head, T_h).log() 
+            result2 = self._lambda_relation.sigmoid() * self._s(T_t, T_h).log()
         elif corrupted == "p":
-            result1 = self._lambda_head * self._s(T_r_head, T_h).log() 
-            result2 = self._lambda_tail * self._s(T_r_tail, T_t).log()
+            result1 = self._lambda_head.sigmoid() * self._s(T_r_head, T_h).log() 
+            result2 = self._lambda_tail.sigmoid() * self._s(T_r_tail, T_t).log()
         elif corrupted == "o":
-            result1 = self._lambda_tail * self._s(T_r_tail, T_t).log() 
-            result2 = self._lambda_relation * self._s(T_h, T_t).log()
+            result1 = self._lambda_tail.sigmoid() * self._s(T_r_tail, T_t).log() 
+            result2 = self._lambda_relation.sigmoid() * self._s(T_h, T_t).log()
         return result1 + result2
 
     def _batch_log_prior(self, s_typ, p_typ, o_typ, corrupted: str, combine: str):
