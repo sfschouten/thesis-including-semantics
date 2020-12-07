@@ -2,6 +2,7 @@
 import torch
 import torch.nn.functional as F
 from torch import Tensor
+from torch.nn.parameter import Parameter
 
 from sem_kge.model.embedder import MultipleEmbedder, GrowingMultipleEmbedder
 from sem_kge import TypedDataset
@@ -90,7 +91,15 @@ class TransT(KgeModel):
         self._lambda_head = self.get_option("lambda_head")
         self._lambda_relation = self.get_option("lambda_relation")
         self._lambda_tail = self.get_option("lambda_tail")
-        
+       
+        self._lambda_head = torch.full((1,), self._lambda_head, device=device, requires_grad=True)
+        self._lambda_relation = torch.full((1,), self._lambda_relation, device=device, requires_grad=True)
+        self._lambda_tail = torch.full((1,), self._lambda_tail, device=device, requires_grad=True)
+
+        self._lambda_head = Parameter(self._lambda_head)
+        self._lambda_relation = Parameter(self._lambda_relation)
+        self._lambda_tail = Parameter(self._lambda_tail)
+
         if not self.get_s_embedder() is self.get_o_embedder():
             raise NotImplementedError("TransT currently does not support \
                 the use of different embedders for subjects and objects.")
@@ -128,20 +137,14 @@ class TransT(KgeModel):
     def _log_prior(self, T_h, T_r_head, T_r_tail, T_t, corrupted):
         result1 = 0; result2 = 0
         if   corrupted == "s":
-            if self._lambda_head > 0:
-                result1 = self._s(T_r_head, T_h).log() 
-            if self._lambda_relation > 0:
-                result2 = self._s(T_t, T_h).log()
+            result1 = self._lambda_head * self._s(T_r_head, T_h).log() 
+            result2 = self._lambda_relation * self._s(T_t, T_h).log()
         elif corrupted == "p":
-            if self._lambda_head > 0:
-                result1 = self._s(T_r_head, T_h).log() 
-            if self._lambda_tail > 0:
-                result2 = self._s(T_r_tail, T_t).log()
+            result1 = self._lambda_head * self._s(T_r_head, T_h).log() 
+            result2 = self._lambda_tail * self._s(T_r_tail, T_t).log()
         elif corrupted == "o":
-            if self._lambda_tail > 0:
-                result1 = self._s(T_r_tail, T_t).log() 
-            if self._lambda_relation > 0:
-                result2 = self._s(T_h, T_t).log()
+            result1 = self._lambda_tail * self._s(T_r_tail, T_t).log() 
+            result2 = self._lambda_relation * self._s(T_h, T_t).log()
         return result1 + result2
 
     def _batch_log_prior(self, s_typ, p_typ, o_typ, corrupted: str, combine: str):
