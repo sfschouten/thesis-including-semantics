@@ -57,8 +57,8 @@ transt:
   lambda_tail: 5.
   entity_embedder:
     normalize:
-       p: 2.
-#      p: -1.0
+#       p: 2.
+      p: -1.0
     regularize_weight: 7.469488745511875e-12
   l_norm: 1.0
   relation_embedder:
