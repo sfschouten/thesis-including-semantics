@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 
-from sem_kge.model.embedder import GrowingMultipleEmbedder
+from sem_kge.model.embedder import MultipleEmbedder, GrowingMultipleEmbedder
 from sem_kge import TypedDataset
 
 from kge import Config, Dataset
@@ -89,18 +89,15 @@ class TransT(KgeModel):
             raise NotImplementedError("TransT currently does not support \
                 the use of different embedders for subjects and objects.")
 
-        # TODO once namespace issue is solved, replace string-based checks
-        # with proper type-instance checks.
-
         # TODO Rather than checking for a specific class, create interface
         # for all embedders that might need type information
 
         # initialize the GrowingEmbeddersEmbedders
-        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())):
+        if isinstance(self.get_s_embedder(), GrowingMultipleEmbedder):
             self.get_s_embedder().initialize_semantics(types_tensor)
  
         # initialize the distribution weights
-        if "MultipleEmbedder" in str(type(self.get_s_embedder())):
+        if isinstance(self.get_s_embedder(), MultipleEmbedder):
             nr_embeddings = self.get_s_embedder().get_nr_embeddings()
             M = self.get_s_embedder().nr_embeds
             idxs = torch.arange(M, device=device).unsqueeze(0).expand(N,-1)
@@ -190,7 +187,7 @@ class TransT(KgeModel):
 
         M = 1 # by default only 1 embedding
         w_s, w_o = self.weights[s], self.weights[o]                 # B x M
-        if "MultipleEmbedder" in str(type(self.get_s_embedder())):
+        if isinstance(self.get_s_embedder(), MultipleEmbedder):
             nr_embeddings = self.get_s_embedder().get_nr_embeddings()
             nr_s = nr_embeddings[s].unsqueeze(1).expand(-1,M)
             nr_o = nr_embeddings[o].unsqueeze(1).expand(-1,M)
@@ -227,7 +224,7 @@ class TransT(KgeModel):
         weighted_exp = w_s * w_o * (x - c).exp()
         loglikelihood = c.squeeze() + weighted_exp.sum(dim=1).sum(dim=1).log()
     
-        if "GrowingMultipleEmbedder" in str(type(self.get_s_embedder())):
+        if isinstance(self.get_s_embedder(), GrowingMultipleEmbedder):
             self.get_s_embedder().update(
                 (s,p,o),(s_emb,p_emb,o_emb),(s_t,r_t,o_t),
                 loglikelihood, self._s)
@@ -282,7 +279,7 @@ class TransT(KgeModel):
        
         M = 1 # by default only 1 embedding
         N = w_all.shape[0]
-        if "MultipleEmbedder" in str(type(self.get_s_embedder())):
+        if isinstance(self.get_s_embedder(), MultipleEmbedder):
             nr_embeddings = self.get_s_embedder().get_nr_embeddings()
             nr_all = nr_embeddings.unsqueeze(1).expand(-1,M)
 
