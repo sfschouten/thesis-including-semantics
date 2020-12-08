@@ -36,7 +36,7 @@ train:
   auto_correct: true
   batch_size: 128
   loss: margin_ranking
-  loss_arg: 3.0
+  loss_arg: 3.5
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95
@@ -46,17 +46,16 @@ train:
   max_epochs: 400
   optimizer: Adam
   optimizer_args:
-    lr: 0.00030000000000000014
+    lr: 0.0003
   type: negative_sampling
 transe:
   entity_embedder:
-    dropout: -0.3519595685173064
     normalize:
-      p: -1.0
+#      p: -1.0
+      p: 2.0
     regularize_weight: 7.469488745511875e-12
   l_norm: 2.0
   relation_embedder:
-    dropout: -0.17305121371616672
     normalize:
       p: -1.0
     regularize_weight: 1.8180176908040284e-07
