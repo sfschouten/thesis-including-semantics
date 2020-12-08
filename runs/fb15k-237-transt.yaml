@@ -15,8 +15,8 @@ eval:
 import:
 - transt
 lookup_embedder:
-  dim: 300
-#  dim: 128
+#  dim: 300
+  dim: 128
 #  initialize: uniform_
 #  initialize_args:
 #    normal_:
