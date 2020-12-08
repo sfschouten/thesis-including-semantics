@@ -23,6 +23,16 @@ class TransT(KgeModel):
         # convert dataset
         dataset = TypedDataset.create(dataset)
 
+        # whether or not to use reciprocal relations
+        self.recrel = config.get("transt.reciprocal_relations")
+
+        R = dataset.num_relations()
+        self.num_relations = R
+
+        # double nr of relations before constructor, so embedders have correct size.
+        if self.recrel:
+            dataset._num_relations = 2 * dataset.num_relations()
+
         super().__init__(
             config=config,
             dataset=dataset,
@@ -37,7 +47,6 @@ class TransT(KgeModel):
         T = dataset.num_types()
 
         config.log("Creating typeset binary vectors")
-
         device = self.config.get("job.device")
         self.device=device
 
@@ -57,10 +66,8 @@ class TransT(KgeModel):
             for t in typelist:
                 types_tensor[idx, t] = True
 
-        R = dataset.num_relations()
 
         config.log("Creating common typeset vectors")
-
         # Create structure with each relation's common type set. 
         type_head_counts = torch.zeros((R,T), device=device, requires_grad=False)
         type_tail_counts = torch.zeros((R,T), device=device, requires_grad=False)
@@ -69,7 +76,6 @@ class TransT(KgeModel):
         triples = dataset.split('train').long()
         for triple in triples:
             h,r,t = triple
-
             type_head_counts[r] += types_tensor[h]
             type_tail_counts[r] += types_tensor[t]
             type_totals[r] += 1
@@ -92,7 +98,7 @@ class TransT(KgeModel):
         # TODO Rather than checking for a specific class, create interface
         # for all embedders that might need type information
 
-        # initialize the GrowingEmbeddersEmbedders
+        # initialize the GrowingMultipleEmbedder
         if isinstance(self.get_s_embedder(), GrowingMultipleEmbedder):
             self.get_s_embedder().initialize_semantics(types_tensor)
  
@@ -113,7 +119,7 @@ class TransT(KgeModel):
         
         result = intersection_size / other_size
         result += 1e-2 #18 # prevent log(0)
-        
+       
         # If |T_1| = 0, than the numerator and denominator are both 0
         #   therefore the outcome should be ... TODO 
         result[other_size.expand_as(result) == 0] = 0.5
@@ -170,9 +176,12 @@ class TransT(KgeModel):
 
         s, p, o = s.long(), p.long(), o.long()
         s_emb = self.get_s_embedder().embed(s)
-        p_emb = self.get_p_embedder().embed(p)
+        if not self.recrel or direction == "o":
+            p_emb = self.get_p_embedder().embed(p)
+        elif self.recrel and direction == "s":
+            p_emb = self.get_p_embedder().embed(p + self.num_relations)
         o_emb = self.get_o_embedder().embed(o)
-       
+      
         # expand dimensions in case 
         for emb in (s_emb, o_emb):
             if emb.ndim == 2:
@@ -251,6 +260,8 @@ class TransT(KgeModel):
         s, p, o = s.long(), p.long(), o.long()
         s_e = self.get_s_embedder().embed(s)
         p_e = self.get_p_embedder().embed(p)
+        if self.recrel:
+           p_i = self.get_p_embedder().embed(p + self.num_relations)
         o_e = self.get_o_embedder().embed(o)
 
         # get typesets
@@ -307,10 +318,15 @@ class TransT(KgeModel):
                 if not ((w_all[:,i] == 0).all() or (w_o[:,j] == 0).all()):
                     o_emb_j = o_e[:,:,j]
                     all_entities_i = all_entities[:,:,i]
-
-                    po_loglikelihood = self._scorer.score_emb(
-                        all_entities_i, p_e, o_emb_j, combine="_po"
-                    ).squeeze()
+                    
+                    if self.recrel:
+                        po_loglikelihood = self._scorer.score_emb(
+                            o_emb_j, p_i, all_entities_i, combine="sp_"
+                        ).squeeze()
+                    else:
+                        po_loglikelihood = self._scorer.score_emb(
+                            all_entities_i, p_e, o_emb_j, combine="_po"
+                        ).squeeze()
                     po_loglike_part[:,:,i,j] = po_loglikelihood
         
         w_sp = w_s.view(B, 1, M, 1) * w_all.view(1, N, 1, M)

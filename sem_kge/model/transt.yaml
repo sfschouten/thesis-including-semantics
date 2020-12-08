@@ -9,6 +9,7 @@ transt:
     type: lookup_embedder
     +++: +++
   l_norm: 1.
+  reciprocal_relations: True
   lambda_head: 1.
   lambda_relation: 1.
   lambda_tail: 1.
