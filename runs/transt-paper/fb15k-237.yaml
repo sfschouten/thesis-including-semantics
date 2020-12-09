@@ -16,10 +16,8 @@ import:
 - transt
 lookup_embedder:
   dim: 300
-# initialize: ...
 model: transt
 train:
-# auto_correct: true
   batch_size: 128
   loss: margin_ranking
   loss_arg: 3.5
