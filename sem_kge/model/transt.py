@@ -2,6 +2,7 @@
 import torch
 import torch.nn.functional as F
 from torch import Tensor
+from torch.nn.parameter import Parameter
 
 from sem_kge.model.embedder import MultipleEmbedder, GrowingMultipleEmbedder
 from sem_kge import TypedDataset
@@ -87,10 +88,45 @@ class TransT(KgeModel):
 
         self.types_tensor = types_tensor
 
-        self._lambda_head = self.get_option("lambda_head")
-        self._lambda_relation = self.get_option("lambda_relation")
-        self._lambda_tail = self.get_option("lambda_tail")
-        
+        def logit(lmbda):
+            return torch.log(lmbda / (1-lmbda))
+
+        lambda_head = self.get_option("lambda_head")
+        lambda_relation = self.get_option("lambda_relation")
+        lambda_tail = self.get_option("lambda_tail")
+
+        lambda_head = torch.full((1,), lambda_head, device=device)
+        lambda_relation = torch.full((1,), lambda_relation, device=device)
+        lambda_tail = torch.full((1,), lambda_tail, device=device)
+
+        learn_lambda = self.get_option("learn_lambda")
+
+        if learn_lambda:
+            # TODO add log statements informing of the change
+            if lambda_head == 0:
+                lambda_head += torch.finfo().eps
+                config.log(f"To allow positive gradients lambda_head has been set to {lambda_head.item()}")
+            if lambda_relation == 0:
+                lambda_relation += torch.finfo().eps
+                config.log(f"To allow positive gradients lambda_relation has been set to {lambda_relation.item()}")
+            if lambda_tail == 0:
+                lambda_tail += torch.finfo().eps
+                config.log(f"To allow positive gradients lambda_tail has been set to {lambda_tail.item()}")
+
+            if lambda_head == 1:
+                lambda_head -= torch.finfo().eps
+                config.log(f"To allow positive gradients lambda_head has been set to {lambda_head.item()}")
+            if lambda_relation == 1:
+                lambda_relation -= torch.finfo().eps
+                config.log(f"To allow positive gradients lambda_relation has been set to {lambda_relation.item()}")
+            if lambda_tail == 1:
+                lambda_tail -= torch.finfo().eps
+                config.log(f"To allow positive gradients lambda_tail has been set to {lambda_tail.item()}")
+
+        self._loglambda_head = Parameter(logit(lambda_head), requires_grad=learn_lambda)
+        self._loglambda_relation = Parameter(logit(lambda_relation), requires_grad=learn_lambda)
+        self._loglambda_tail = Parameter(logit(lambda_tail), requires_grad=learn_lambda)
+
         if not self.get_s_embedder() is self.get_o_embedder():
             raise NotImplementedError("TransT currently does not support \
                 the use of different embedders for subjects and objects.")
@@ -126,22 +162,32 @@ class TransT(KgeModel):
         return result
 
     def _log_prior(self, T_h, T_r_head, T_r_tail, T_t, corrupted):
-        result1 = 0; result2 = 0
-        if   corrupted == "s":
-            if self._lambda_head > 0:
-                result1 = self._s(T_r_head, T_h).log() 
-            if self._lambda_relation > 0:
-                result2 = self._s(T_t, T_h).log()
+        result1 = 0
+        result2 = 0
+        
+        lambda_head = self._loglambda_head.sigmoid()
+        lambda_relation = self._loglambda_relation.sigmoid()
+        lambda_tail = self._loglambda_tail.sigmoid()
+
+        lambda_head = 1 if lambda_head.isinf() else lambda_head 
+        lambda_relation = 1 if lambda_relation.isinf() else lambda_relation 
+        lambda_tail = 1 if lambda_tail.isinf() else lambda_tail 
+
+        if corrupted == "s":
+            if lambda_head > 0:
+                result1 = lambda_head * self._s(T_r_head, T_h).log() 
+            if lambda_relation > 0:
+                result2 = lambda_relation * self._s(T_t, T_h).log()
         elif corrupted == "p":
-            if self._lambda_head > 0:
-                result1 = self._s(T_r_head, T_h).log() 
-            if self._lambda_tail > 0:
-                result2 = self._s(T_r_tail, T_t).log()
+            if lambda_head > 0:
+                result1 = lambda_head * self._s(T_r_head, T_h).log() 
+            if lambda_tail > 0:
+                result2 = lambda_tail * self._s(T_r_tail, T_t).log()
         elif corrupted == "o":
-            if self._lambda_tail > 0:
-                result1 = self._s(T_r_tail, T_t).log() 
-            if self._lambda_relation > 0:
-                result2 = self._s(T_h, T_t).log()
+            if lambda_tail > 0:
+                result1 = lambda_tail * self._s(T_r_tail, T_t).log() 
+            if lambda_relation > 0:
+                result2 = lambda_relation * self._s(T_h, T_t).log()
         return result1 + result2
 
     def _batch_log_prior(self, s_typ, p_typ, o_typ, corrupted: str, combine: str):
@@ -167,6 +213,21 @@ class TransT(KgeModel):
             raise NotImplementedError()
 
         return logprior
+
+    def prepare_job(self, job, **kwargs):
+        super().prepare_job(job, **kwargs)
+
+        if not self.get_option("learn_lambda"):
+            return
+
+        def trace_lambda(trace_job):
+            trace_job.current_trace["batch"]["loglambda_head"] = self._loglambda_head.item()
+            trace_job.current_trace["batch"]["loglambda_relation"] = self._loglambda_relation.item()
+            trace_job.current_trace["batch"]["loglambda_tail"] = self._loglambda_tail.item()
+
+        from kge.job import TrainingOrEvaluationJob
+        if isinstance(job, TrainingOrEvaluationJob):
+            job.pre_batch_hooks.append(trace_lambda)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         """
