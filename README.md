@@ -26,8 +26,8 @@ Then one final data preprocessing step is necessary, which adds the type informa
 	!curl -L https://surfdrive.surf.nl/files/index.php/s/rGqLTDXRFLPJYg7/download --output fb15k-237.tar.gz
 	tar xzf wn18rr.tar.gz
 	tar xzf fb15k-237.tar.gz
-	cp WN18RR/entity2type.txt /content/sem_kge/data/wnrr-typed/entity_types.txt
-	cp FB15k-237/entity2type.txt /content/sem_kge/data/fb15k-237-typed/entity_types.txt
+	cp WN18RR/entity2type.txt <SEMKGE_HOME>/data/wnrr-typed/entity_types.txt
+	cp FB15k-237/entity2type.txt <SEMKGE_HOME>/data/fb15k-237-typed/entity_types.txt
 	cd ..
 	
 	python preprocess_types.py wnrr-typed
