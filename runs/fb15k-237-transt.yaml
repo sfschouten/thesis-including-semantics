@@ -52,9 +52,9 @@ train:
     lr: 0.0003
   type: negative_sampling
 transt:
-  lambda_head: 5.
-  lambda_relation: -5.
-  lambda_tail: 5.
+  lambda_head: 1.
+  lambda_relation: 0.
+  lambda_tail: 1.
   entity_embedder:
     normalize:
 #       p: 2.
