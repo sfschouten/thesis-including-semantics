@@ -214,6 +214,21 @@ class TransT(KgeModel):
 
         return logprior
 
+    def prepare_job(self, job, **kwargs):
+        super().prepare_job(job, **kwargs)
+
+        if not self.get_option("learn_lambda"):
+            return
+
+        def trace_lambda(trace_job):
+            trace_job.current_trace["batch"]["loglambda_head"] = self._loglambda_head.item()
+            trace_job.current_trace["batch"]["loglambda_relation"] = self._loglambda_relation.item()
+            trace_job.current_trace["batch"]["loglambda_tail"] = self._loglambda_tail.item()
+
+        from kge.job import TrainingOrEvaluationJob
+        if isinstance(job, TrainingOrEvaluationJob):
+            job.pre_batch_hooks.append(trace_lambda)
+
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         """
         """
