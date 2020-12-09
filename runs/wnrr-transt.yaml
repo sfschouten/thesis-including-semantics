@@ -15,7 +15,7 @@ eval:
 import:
 - transt
 lookup_embedder:
-  dim: 512
+  dim: 64
   initialize: xavier_normal_
   initialize_args:
     normal_:
@@ -37,8 +37,7 @@ train:
   auto_correct: true
   batch_size: 128
   loss: margin_ranking
-  loss_arg: 3.5
-#  loss_arg: 1.0
+  loss_arg: 3.
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95
@@ -53,14 +52,14 @@ transt:
   lambda_head: 0.
   lambda_relation: 1.
   lambda_tail: 0.
+  learned_lambda: True
   entity_embedder:
     dropout: 0.2519204934424376
     normalize:
-      p: -1.0
+      p: 2.0
     regularize_weight: 2.1299293567133326e-07
-  l_norm: 2.0
+  l_norm: 1.0
   relation_embedder:
-    dropout: -0.025948206777731686
     normalize:
       p: -1.0
     regularize_weight: 8.992034045083661e-13

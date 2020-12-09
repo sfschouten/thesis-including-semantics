@@ -169,7 +169,7 @@ class TransT(KgeModel):
         lambda_relation = self._loglambda_relation.sigmoid()
         lambda_tail = self._loglambda_tail.sigmoid()
 
-        lambda_head = 1 if lambda_head.isinf().all() else lambda_head 
+        lambda_head = 1 if lambda_head.isinf() else lambda_head 
         lambda_relation = 1 if lambda_relation.isinf() else lambda_relation 
         lambda_tail = 1 if lambda_tail.isinf() else lambda_tail 
 

@@ -15,7 +15,6 @@ eval:
 import:
 - transt
 lookup_embedder:
-#  dim: 300
   dim: 128
   initialize: uniform_
   initialize_args:
@@ -55,10 +54,10 @@ transt:
   lambda_head: 1.
   lambda_relation: 0.
   lambda_tail: 1.
+  learned_lambda: True
   entity_embedder:
     normalize:
-#       p: 2.
-      p: -1.0
+       p: 2.
     regularize_weight: 7.469488745511875e-12
   l_norm: 1.0
   relation_embedder:
