@@ -54,7 +54,7 @@ transt:
   lambda_head: 1.
   lambda_relation: 0.
   lambda_tail: 1.
-  learned_lambda: True
+  learn_lambda: True
   entity_embedder:
     normalize:
        p: 2.
