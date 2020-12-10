@@ -54,7 +54,7 @@ transt:
   lambda_head: 1.
   lambda_relation: 0.
   lambda_tail: 1.
-  learned_lambda: True
+  learn_lambda: True
   entity_embedder:
     normalize:
        p: 2.
@@ -67,8 +67,8 @@ transt:
 valid:
   every: 5
   early_stopping:
+    patience: 5
     min_threshold:
       epochs: 50
       metric_value: 0.05
-    patience: 10
 
