@@ -1,3 +1,4 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 dataset:
   name: fb15k-237-typed
 eval:

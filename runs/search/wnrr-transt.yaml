@@ -9,10 +9,11 @@ job:
       
 search.type: ax
 
-dataset.name: fb15k-237-typed
+dataset.name: wnrr-typed
 
 train:
   max_epochs: 75
+  auto_correct: True
 
 valid:
   every: 5
@@ -34,7 +35,6 @@ ax_search:
   num_trials: 30
   num_sobol_trials: 10
   parameters:
-  
     # model
     - name: model
       type: fixed
@@ -121,10 +121,10 @@ ax_search:
     # embedding dropout
     - name: transt.entity_embedder.dropout
       type: range
-      bounds: [0., 0.5] #[-0.5, 0.5]
+      bounds: [-0.5, 0.5]
     - name: transt.relation_embedder.dropout
       type: range
-      bounds: [0., 0.5]
+      bounds: [-0.5, 0.5]
 
     # training-type specific hyperparameters
     - name: negative_sampling.num_negatives_s #train_type = negative_sampling
@@ -167,7 +167,7 @@ ax_search:
       values: [True, False]
     - name: transt.rho
       type: range
-      bounds: [0.5, 0.8]
+      bounds: [0.55, 0.85]
       
       
 

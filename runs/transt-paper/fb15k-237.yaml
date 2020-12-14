@@ -1,5 +1,4 @@
-plugins:
-- sem_kge
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 job:
   external_tracking:
     weights-and-biases:
