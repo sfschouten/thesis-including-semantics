@@ -1,15 +1,10 @@
 import: [lookup_embedder]
 
-transt:
-  class_name: TransT
-  entity_embedder: 
-    type: lookup_embedder
+transtprior:
+  class_name: TransTPrior
+  base_model: 
+    type: transe
     +++: +++
-  relation_embedder: 
-    type: lookup_embedder
-    +++: +++
-  l_norm: 1.                        
-  reciprocal_relations: True        # bool
   lambda_head: 0.5                  # [0,1]
   lambda_relation: 0.5              # [0,1]
   lambda_tail: 0.5                  # [0,1]

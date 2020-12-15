@@ -1,9 +1,14 @@
 modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+
 job:
   external_tracking:
     weights-and-biases:
       project: sem_kge
       group: transt
+      
+random_seed:
+  default: 29071993
+  
 dataset:
   name: fb15k-237-typed
 eval:
@@ -11,7 +16,10 @@ eval:
   metrics_per:
     relation_type: true
   trace_level: example
-import: [transt]
+import:
+- transtprior
+- transe
+- reciprocal_relations_model
 lookup_embedder:
   dim: 128
   initialize: uniform_
@@ -26,7 +34,7 @@ lookup_embedder:
     xavier_uniform_:
       gain: 1.0
   regularize: ''
-model: transt 
+model: transtprior 
 negative_sampling:
   num_samples:
     o: 192
@@ -48,20 +56,28 @@ train:
   optimizer_args:
     lr: 0.0003
   type: negative_sampling
-transt:
-  lambda_head: 1.
-  lambda_relation: 0.
-  lambda_tail: 1.
-  learn_lambda: True
+transe:
   entity_embedder:
     normalize:
-       p: 2.
+      p: 2.
     regularize_weight: 7.469488745511875e-12
-  l_norm: 1.0
   relation_embedder:
     normalize:
       p: -1.0
     regularize_weight: 1.8180176908040284e-07
+  l_norm: 1.
+transtprior:
+  lambda_head: 1.
+  lambda_relation: 0.
+  lambda_tail: 1.
+  learn_lambda: True
+  base_model:
+    type: reciprocal_relations_model
+    base_model:
+      type: transe
+reciprocal_relations_model:
+  base_model:
+    type: transe
 valid:
   every: 5
   early_stopping:
