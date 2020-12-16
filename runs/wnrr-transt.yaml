@@ -47,21 +47,27 @@ train:
   optimizer_args:
     lr: 0.2532720169185861
   type: negative_sampling
-transt:
-  lambda_head: 0.
-  lambda_relation: 1.
-  lambda_tail: 0.
-  learned_lambda: True
+  
+transe:
   entity_embedder:
     dropout: 0.2519204934424376
-    normalize:
-      p: 2.0
     regularize_weight: 2.1299293567133326e-07
-  l_norm: 1.0
   relation_embedder:
-    normalize:
-      p: -1.0
     regularize_weight: 8.992034045083661e-13
+  l_norm: 2.
+reciprocal_relations_model:
+  base_model:
+    type: transe
+type_prior:
+  lambda_head: 0.       #0.5
+  lambda_relation: 1.   #0.5
+  lambda_tail: 0.       #0.5
+  learn_lambda: True
+  base_model:
+    type: reciprocal_relations_model
+    base_model:
+      type: transe
+      
 valid:
   every: 5
   early_stopping:

@@ -1,7 +1,7 @@
-import: [lookup_embedder]
+import: [transe]
 
-transtprior:
-  class_name: TransTPrior
+type_prior:
+  class_name: TypePrior
   base_model: 
     type: transe
     +++: +++

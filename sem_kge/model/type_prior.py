@@ -11,8 +11,10 @@ from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 from kge.model.transe import TransEScorer
 
-class TransTPrior(KgeModel):
+class TypePrior(KgeModel):
     """ """
+
+    PRIOR_ONLY_VALUE = "prior-only"
 
     def __init__(
         self, 
@@ -23,32 +25,37 @@ class TransTPrior(KgeModel):
     ):
         self._init_configuration(config, configuration_key)
 
-        # Initialize base model
-        base_model = KgeModel.create(
-            config=config,
-            dataset=dataset,
-            configuration_key=self.configuration_key + ".base_model",
-            init_for_load_only=init_for_load_only,
-        )
+        scorer = None
 
+        self.has_base = self.get_option("base_model.type") != self.PRIOR_ONLY_VALUE
+        if self.has_base:
+            # Initialize base model
+            base_model = KgeModel.create(
+                config=config,
+                dataset=dataset,
+                configuration_key=self.configuration_key + ".base_model",
+                init_for_load_only=init_for_load_only,
+            )
+            scorer = base_model.get_scorer()
 
         # Initialize this model
         super().__init__(
             config=config,
             dataset=dataset,
-            configuration_key=configuration_key,
-            scorer=base_model.get_scorer(),
+            scorer=scorer,
             create_embedders=False,
             init_for_load_only=init_for_load_only,
         )
-        self._base_model = base_model
-    
+
         #TODO find cause for why this is necessary...
-        self.configuration_key = "transtprior"
+        self.configuration_key = "type_prior"
+
+        if self.has_base:
+            self._base_model = base_model
+            
+            self._entity_embedder = self._base_model.get_s_embedder()
+            self._relation_embedder = self._base_model.get_p_embedder()
     
-        self._entity_embedder = self._base_model.get_s_embedder()
-        self._relation_embedder = self._base_model.get_p_embedder()
-  
         # convert dataset
         dataset = TypedDataset.create(dataset)
     
@@ -143,6 +150,10 @@ class TransTPrior(KgeModel):
         self._loglambda_relation = Parameter(logit(lambda_relation), requires_grad=learn_lambda)
         self._loglambda_tail = Parameter(logit(lambda_tail), requires_grad=learn_lambda)
 
+        if not self.has_base:
+            # The rest of the initialization is only relevant when there's a base model.
+            return
+
         if not self.get_s_embedder() is self.get_o_embedder():
             raise NotImplementedError("TransT currently does not support \
                 the use of different embedders for subjects and objects.")
@@ -165,12 +176,11 @@ class TransTPrior(KgeModel):
             weights = torch.ones((N,1), device=device) 
         self.weights = torch.nn.Parameter(weights)
 
-
-    def prepare_job(self, job, **kwargs):
-        self._base_model.prepare_job(job, **kwargs)
-
     def penalty(self, **kwargs):
-        return self._base_model.penalty(**kwargs)
+        if self.has_base:
+            return self._base_model.penalty(**kwargs)
+        else:
+            return []
 
     def _s(self, T_1, T_2):
         intersection_size = (T_1 & T_2).sum(dim=1).float()
@@ -252,20 +262,19 @@ class TransTPrior(KgeModel):
         return logprior
 
     def prepare_job(self, job, **kwargs):
-        super().prepare_job(job, **kwargs)
+        if self.has_base:
+            self._base_model.prepare_job(job, **kwargs)
+        
+        if self.get_option("learn_lambda"):
+            # trace the lambda parameters
+            def trace_lambda(trace_job):
+                trace_job.current_trace["batch"]["loglambda_head"] = self._loglambda_head.item()
+                trace_job.current_trace["batch"]["loglambda_relation"] = self._loglambda_relation.item()
+                trace_job.current_trace["batch"]["loglambda_tail"] = self._loglambda_tail.item()
 
-        if not self.get_option("learn_lambda"):
-            return
-
-        # trace the lambda parameters
-        def trace_lambda(trace_job):
-            trace_job.current_trace["batch"]["loglambda_head"] = self._loglambda_head.item()
-            trace_job.current_trace["batch"]["loglambda_relation"] = self._loglambda_relation.item()
-            trace_job.current_trace["batch"]["loglambda_tail"] = self._loglambda_tail.item()
-
-        from kge.job import TrainingOrEvaluationJob
-        if isinstance(job, TrainingOrEvaluationJob):
-            job.pre_batch_hooks.append(trace_lambda)
+            from kge.job import TrainingOrEvaluationJob
+            if isinstance(job, TrainingOrEvaluationJob):
+                job.pre_batch_hooks.append(trace_lambda)
 
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         """
@@ -278,11 +287,12 @@ class TransTPrior(KgeModel):
         o_t = self.types_tensor[o]
 
         logprior = self._log_prior(s_t, r_t[0], r_t[1], o_t, direction)
-        loglikelihood = self._base_model.score_spo(s, p, o, direction=direction)
+        loglikelihood = 0
+        if self.has_base:
+            loglikelihood = self._base_model.score_spo(s, p, o, direction=direction)
 
         logposterior = loglikelihood + logprior
         return logposterior.view(-1)
-
 
     def score_sp(self, s: Tensor, p: Tensor, o: Tensor = None) -> Tensor:
         raise NotImplementedError() 
@@ -315,7 +325,9 @@ class TransTPrior(KgeModel):
                 all_entity_types, p_t, o_t, "s", "_po")
        
         logprior = torch.cat((sp_logprior, po_logprior), dim=1)
-        loglikelihood = self._base_model.score_sp_po(s, p, o, entity_subset)
+        loglikelihood = 0
+        if self.has_base:
+            loglikelihood = self._base_model.score_sp_po(s, p, o, entity_subset)
 
         logposterior = logprior + loglikelihood
         return logposterior 

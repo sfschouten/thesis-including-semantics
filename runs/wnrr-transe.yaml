@@ -48,14 +48,9 @@ train:
 transe:
   entity_embedder:
     dropout: 0.2519204934424376
-    normalize:
-      p: -1.0
     regularize_weight: 2.1299293567133326e-07
   l_norm: 2.0
   relation_embedder:
-    dropout: -0.025948206777731686
-    normalize:
-      p: -1.0
     regularize_weight: 8.992034045083661e-13
 valid:
   early_stopping:
