@@ -54,16 +54,16 @@ For an example on how to do the entire installation process and use the package 
 |                                                                                                       |   MRR | Mean Rank | Hits@1 | Hits@3 | Hits@10 |                                                                                      Config file |
 |-------------------------------------------------------------------------------------------------------|------:|----------:|-------:|-------:|--------:|-------------------------------------------------------------------------------------------------:|
 | [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.313 |  -        |  0.221 |  0.347 |   0.497 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/fb15k-237-transe.yaml) |
-| TransT-type (Ours/Best)                                                                               |       |           |        |        |         |   [todo]() |
-| TransT-type-only (Ours/Best)                                                                          |       |           |        |        |         |   [todo]() |
+| TransT-type (ours/best)                                                                               |       |           |        |        |         |   [todo]() |
+| TransT-type-only (ours/best)                                                                          |       |           |        |        |         |   [todo]() |
 
 #### WN18RR (Wordnet)
 
 |                                                                                                       |   MRR | Mean Rank | Hits@1 | Hits@3 | Hits@10 |                                                                                 Config file |
 |-------------------------------------------------------------------------------------------------------|------:|----------:|-------:|-------:|--------:|--------------------------------------------------------------------------------------------:|
 | [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.228 |  -        | 0.053  |  0.368 |   0.520 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-transe.yaml) |
-| TransT-type (Ours/Best)                                                                               |       |           |        |        |         |   [todo]() |
-| TransT-type-only (Ours/Best)                                                                          |       |           |        |        |         |   [todo]() |
+| TransT-type (ours/best)                                                                               |       |           |        |        |         |   [todo]() |
+| TransT-type-only (ours/best)                                                                          |       |           |        |        |         |   [todo]() |
 
 #### FB15K (Freebase)
 
@@ -71,10 +71,10 @@ For an example on how to do the entire installation process and use the package 
 |-------------------------------------------------------------------------------------------------------------------|------:|----------:|-------:|-------:|--------:|-------------------------------------------------------------------------------------------:|
 | [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)             | 0.676 |  -        | 0.542  | 0.787  |   0.875 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/fb15k-transe.yaml) |
 | [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) (Ma et al.) | -     |  143      | -      | -      |   0.621 |   -                                                                                        |
-| TransT-type (Ours/Best)                                                                                           |       |           |        |        |         |   [todo]() |
-| TransT-type (Ours/Reproduction)                                                                                   |       |           |        |        |         |   [todo]() |
-| TransT-multiple (Ours/Reproduction)                                                                               |       |           |        |        |         |   [todo]() |
-| TransT-multiple-type (Ours/Reproduction)                                                                          |       |           |        |        |         |   [todo]() |
+| TransT-type (ours/best)                                                                                           |       |           |        |        |         |   [todo]() |
+| TransT-type (ours/repro)                                                                                   |       |           |        |        |         |   [todo]() |
+| TransT-multiple (ours/repro)                                                                               |       |           |        |        |         |   [todo]() |
+| TransT-multiple-type (ours/repro)                                                                          |       |           |        |        |         |   [todo]() |
 | TransT-type (Ma et al.)                                                                                           | -     |  72       | -      | -      |   0.823 |   -                                                                                        |
 | TransT-multiple (Ma et al.)                                                                                       | -     |  62       | -      | -      |   0.836 |   -                                                                                        |
 | TransT-multiple-type (Ma et al.)                                                                                  | -     |  46       | -      | -      |   0.854 |   -                                                                                        |
@@ -85,8 +85,8 @@ For an example on how to do the entire installation process and use the package 
 |-------------------------------------------------------------------------------------------------------------------|------:|----------:|-------:|-------:|--------:|------------------------------------------------------------------------------------------:|
 | [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data)             | 0.553 |  -        | 0.315  | 0.764  |   0.924 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/libkge-models/wn18-transe.yaml) |
 | [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) (Ma et al.) | -     |  251      | -      | -      |   0.892 |   -                                                                                       |
-| TransT-type (Ours/Reproduction)                                                                                   |       |           |        |        |         |   [todo]() |
-| TransT-type (Ours/Best)                                                                                           |       |           |        |        |         |   [todo]() |
+| TransT-type (ours/repro)                                                                                   |       |           |        |        |         |   [todo]() |
+| TransT-type (ours/best)                                                                                           |       |           |        |        |         |   [todo]() |
 | TransT-multiple-type (Ma et al.)                                                                                  | -     |  130      | -      | -      |   0.974 |   -                                                                                       |
 
 
