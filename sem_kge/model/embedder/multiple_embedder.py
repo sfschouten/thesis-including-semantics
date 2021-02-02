@@ -62,12 +62,12 @@ class MultipleEmbedder(KgeEmbedder):
         B, _ = embeddings.shape
         return embeddings.reshape(B, -1, self.nr_embeds)
 
-    def _softmax_weights(self, weights):
+    def _softmax_weights(self, weights, indexes=None):
         return F.softmax(weights, dim=1)
 
     def embed(self, indexes):
         e = self._embed(self.base_embedder.embed(indexes))
-        w = self._softmax_weights(self.weights[indexes])
+        w = self._softmax_weights(self.weights[indexes], indexes)
         return e,w
 
     def embed_all(self):

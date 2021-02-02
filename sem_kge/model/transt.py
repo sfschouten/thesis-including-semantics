@@ -16,10 +16,6 @@ class TransTScorer(RelationalScorer):
     def set_transt_model(self, transt_model):
         # Assuming identical s and o embedders.
         self.embedder = transt_model.get_s_embedder()
-        
-        # initialize the GrowingMultipleEmbedder
-        if isinstance(self.embedder, GrowingMultipleEmbedder):
-            self.embedder.initialize_semantics(types_tensor)
 
     def _score_translation(self, s_emb, p_emb, o_emb, combine: str):
         n = p_emb.size(0)
@@ -76,11 +72,6 @@ class TransTScorer(RelationalScorer):
         loglikelihood = c.squeeze(dim=1).squeeze(dim=1) \
                       + weighted_exp.sum(dim=1).sum(dim=1).log()
         loglikelihood = loglikelihood.squeeze()
-
-        if isinstance(self.embedder, GrowingMultipleEmbedder) and combine == "spo":
-            self.embedder.update(
-                (s,p,o),(s_emb,p_emb,o_emb),(s_t,r_t,o_t),
-                loglikelihood, self._s)
 
         return loglikelihood
 

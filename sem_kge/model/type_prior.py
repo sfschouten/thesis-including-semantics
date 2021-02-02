@@ -164,17 +164,7 @@ class TypePrior(KgeModel):
         # initialize the GrowingMultipleEmbedder
         if isinstance(self.get_s_embedder(), GrowingMultipleEmbedder):
             self.get_s_embedder().initialize_semantics(types_tensor)
- 
-        # initialize the distribution weights
-        if isinstance(self.get_s_embedder(), MultipleEmbedder):
-            nr_embeddings = self.get_s_embedder().get_nr_embeddings()
-            M = self.get_s_embedder().nr_embeds
-            idxs = torch.arange(M, device=device).unsqueeze(0).expand(N,-1)
-            weights = (idxs < nr_embeddings.unsqueeze(1).expand(-1,M)).float()
-            weights /= nr_embeddings.unsqueeze(1)
-        else:
-            weights = torch.ones((N,1), device=device) 
-        self.weights = torch.nn.Parameter(weights)
+
 
     def penalty(self, **kwargs):
         if self.has_base:
@@ -290,6 +280,13 @@ class TypePrior(KgeModel):
         loglikelihood = 0
         if self.has_base:
             loglikelihood = self._base_model.score_spo(s, p, o, direction=direction)
+        
+        if self._entity_embedder and \
+           isinstance(self._entity_embedder, GrowingMultipleEmbedder):
+            p_emb = self.get_p_embedder().embed(p)
+            self._entity_embedder.update(
+                (s,p,o),p_emb,(s_t,r_t,o_t),
+                loglikelihood, self._s)
 
         logposterior = loglikelihood + logprior
         return logposterior.view(-1)
