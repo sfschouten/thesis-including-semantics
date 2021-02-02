@@ -41,7 +41,15 @@ class GrowingMultipleEmbedder(MultipleEmbedder):
 
         # The semantics of the first vector of each entity is simply its own type set.
         self.semantics[:,:,0] = types_tensor
-        
+    
+    def _softmax_weights(self, weights):
+        # set inactive embedding weights to -inf before softmax
+        nr = self.nr_semantics[s].unsqueeze(1).expand(-1,1)
+        M = self.max_nr_semantics
+        idxs = torch.arange(M, device=self.device).unsqueeze(0).expand(B,-1)
+        weights[idxs >= nr] = float('-inf')
+        return F.softmax(weights, dim=1)
+
     def update(self, idxs, embeds, types, loglikelihood, similarity_fn):
         h_idx, r_idx, t_idx = idxs
         h_emb, r_emb, t_emb = embeds
