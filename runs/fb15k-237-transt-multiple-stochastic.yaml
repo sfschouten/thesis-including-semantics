@@ -18,7 +18,8 @@ import:
 - multiple_embedder
 multiple_embedder:
   dim: 128
-  nr_embeds: 4
+  nr_embeds: 8
+  stochastic: True
   initialize: uniform_
   initialize_args:
     normal_:

@@ -37,7 +37,13 @@ class MultipleEmbedder(KgeEmbedder):
 
         self.dropout = self.get_option("dropout")
         self.device = self.config.get("job.device")
-
+        self.stochastic = self.get_option("stochastic")
+        distribution = self.get_option("distribution")
+        if distribution == "relaxed_one_hot_categorical":
+            self.distribution = torch.distributions.relaxed_categorical.RelaxedOneHotCategorical
+        else:
+            raise Exception()
+        
         # initialize the distribution weights
         N = dataset.num_entities()
         M = self.nr_embeds
@@ -65,13 +71,26 @@ class MultipleEmbedder(KgeEmbedder):
     def _softmax_weights(self, weights, indexes=None):
         return F.softmax(weights, dim=1)
 
+    def _sample_or_softmax(self, w, e, indexes=None):
+        w = self._softmax_weights(w, indexes)
+        if self.stochastic and self.training:
+            dist = self.distribution(0.1, probs=w)
+            idx = dist.rsample()
+            idx = idx.argmax(dim=1)                                     # B
+            idx = F.one_hot(idx, num_classes=self.nr_embeds).bool()     # B x M
+            idx = idx.unsqueeze(1).expand_as(e)                         # B x 1 x M
+            e = e[idx].view(e.shape[0],-1).unsqueeze(2)
+            w = torch.ones((w.shape[0],1), device=self.device)
+            
+        return e,w
+
     def embed(self, indexes):
         e = self._embed(self.base_embedder.embed(indexes))
-        w = self._softmax_weights(self.weights[indexes], indexes)
-        return e,w
+        w = self.weights[indexes]
+        return self._sample_or_softmax(w, e, indexes)
 
     def embed_all(self):
         e = self._embed(self.base_embedder.embed_all())
-        w = self._softmax_weights(self.weights)
-        return e,w
+        w = self.weights
+        return self._sample_or_softmax(w, e)
 

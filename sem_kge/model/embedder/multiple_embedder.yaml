@@ -8,6 +8,8 @@ multiple_embedder:
     +++: +++
   dim: 128
   nr_embeds: 4
+  stochastic: False
+  distribution: relaxed_one_hot_categorical
   initialize: normal_         # options: [xavier, uniform, normal]
   initialize_args:          
     +++: +++

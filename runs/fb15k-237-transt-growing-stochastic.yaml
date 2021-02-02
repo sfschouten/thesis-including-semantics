@@ -15,10 +15,11 @@ import:
 - transt
 - type_prior
 - reciprocal_relations_model
-- multiple_embedder
-multiple_embedder:
+- growing_embedder
+growing_embedder:
   dim: 128
   nr_embeds: 4
+  stochastic: True
   initialize: uniform_
   initialize_args:
     normal_:
@@ -69,7 +70,7 @@ train:
   type: negative_sampling
 transt:
   entity_embedder:
-    type: multiple_embedder
+    type: growing_embedder
     normalize:
       p: 2.0
     regularize_weight: 7.469488745511875e-12
@@ -89,10 +90,9 @@ type_prior:
     base_model:
       type: transt
 valid:
-  every: 5
+  every: 1
   early_stopping:
     min_threshold:
       epochs: 50
       metric_value: 0.05
     patience: 10
-
