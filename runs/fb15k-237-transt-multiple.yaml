@@ -13,6 +13,8 @@ eval:
   trace_level: example
 import:
 - transt
+- type_prior
+- reciprocal_relations_model
 - multiple_embedder
 multiple_embedder:
   dim: 128
@@ -43,7 +45,7 @@ lookup_embedder:
     xavier_uniform_:
       gain: 1.0
   regularize: ''
-model: transt 
+model: type_prior 
 negative_sampling:
   num_samples:
     o: 192
@@ -66,21 +68,28 @@ train:
     lr: 0.0003
   type: negative_sampling
 transt:
+  entity_embedder:
+    type: multiple_embedder
+    normalize:
+      p: 2.0
+    regularize_weight: 7.469488745511875e-12
+  l_norm: 1.0
+  relation_embedder:
+    regularize_weight: 1.8180176908040284e-07
+reciprocal_relations_model:
+  base_model:
+    type: transt
+type_prior:
   lambda_head: 1.
   lambda_relation: 0.
   lambda_tail: 1.
-  entity_embedder:
-    type: multiple_embedder
-    #normalize:
-    #  p: -1.0
-    regularize_weight: 7.469488745511875e-12
-  l_norm: 2.0
-  relation_embedder:
-    normalize:
-      p: -1.0
-    regularize_weight: 1.8180176908040284e-07
+  learn_lambda: False
+  base_model:
+    type: reciprocal_relations_model
+    base_model:
+      type: transt
 valid:
-  every: 1
+  every: 5
   early_stopping:
     min_threshold:
       epochs: 50

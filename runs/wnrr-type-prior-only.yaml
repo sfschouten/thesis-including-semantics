@@ -1,32 +1,21 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+
 job:
   external_tracking:
     weights-and-biases:
       project: sem_kge
-      group: transe
+      group: transt
+      
 dataset:
-  name: fb15k-237
+  name: fb15k-237-typed
 eval:
   batch_size: 256
   metrics_per:
     relation_type: true
   trace_level: example
 import:
-- transe
-lookup_embedder:
-  dim: 128
-  initialize: uniform_
-  initialize_args:
-    normal_:
-      mean: 0.0
-      std: 3.5688807324453804e-05
-    uniform_:
-      a: -1.0000000000065512e-05
-    xavier_normal_:
-      gain: 1.0
-    xavier_uniform_:
-      gain: 1.0
-  regularize: ''
-model: transe 
+- type_prior
+model: type_prior 
 negative_sampling:
   num_samples:
     o: 192
@@ -35,7 +24,8 @@ negative_sampling:
 train:
   auto_correct: true
   batch_size: 128
-  loss_arg: 1.0
+  loss: margin_ranking
+  loss_arg: 3.5
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95
@@ -47,16 +37,18 @@ train:
   optimizer_args:
     lr: 0.0003
   type: negative_sampling
-transe:
-  entity_embedder:
-    regularize_weight: 7.469488745511875e-12
-  l_norm: 2.0
-  relation_embedder:
-    regularize_weight: 1.8180176908040284e-07
+type_prior:
+  lambda_head: 1.
+  lambda_relation: 0.
+  lambda_tail: 1.
+  learn_lambda: False
+  base_model: 
+    type: prior-only
 valid:
+  every: 1
   early_stopping:
+    patience: 5
     min_threshold:
       epochs: 50
       metric_value: 0.05
-    patience: 10
 

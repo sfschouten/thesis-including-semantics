@@ -13,7 +13,6 @@ class MultipleEmbedder(KgeEmbedder):
         self, config, dataset, configuration_key, 
         vocab_size, init_for_load_only=False
     ):
-
         super().__init__(
             config, dataset, configuration_key, init_for_load_only=init_for_load_only
         )
@@ -37,11 +36,20 @@ class MultipleEmbedder(KgeEmbedder):
         )
 
         self.dropout = self.get_option("dropout")
+        self.device = self.config.get("job.device")
+
+        # initialize the distribution weights
+        N = dataset.num_entities()
+        M = self.nr_embeds
+        nr_embeddings = self.get_nr_embeddings()
+        idxs = torch.arange(M, device=self.device).unsqueeze(0).expand(N,-1)
+        weights = (idxs < nr_embeddings.unsqueeze(1).expand(-1,M)).float()
+        weights /= nr_embeddings.unsqueeze(1)
+        self.weights = torch.nn.Parameter(weights)
 
     def get_nr_embeddings(self):
         """ returns a tensor with the number of embeddings for each object in vocabulary """
-        device = self.config.get("job.device")
-        return torch.ones((self.vocab_size), device=device) * self.nr_embeds
+        return torch.ones((self.vocab_size), device=self.device) * self.nr_embeds
 
     def _embed(self, embeddings):
         # apply dropout
@@ -54,9 +62,16 @@ class MultipleEmbedder(KgeEmbedder):
         B, _ = embeddings.shape
         return embeddings.reshape(B, -1, self.nr_embeds)
 
+    def _softmax_weights(self, weights, indexes=None):
+        return F.softmax(weights, dim=1)
+
     def embed(self, indexes):
-        return self._embed(self.base_embedder.embed(indexes))
+        e = self._embed(self.base_embedder.embed(indexes))
+        w = self._softmax_weights(self.weights[indexes], indexes)
+        return e,w
 
     def embed_all(self):
-        return self._embed(self.base_embedder.embed_all())
+        e = self._embed(self.base_embedder.embed_all())
+        w = self._softmax_weights(self.weights)
+        return e,w
 

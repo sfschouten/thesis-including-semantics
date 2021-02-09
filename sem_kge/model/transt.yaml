@@ -2,16 +2,10 @@ import: [lookup_embedder]
 
 transt:
   class_name: TransT
-  entity_embedder: 
+  entity_embedder:
     type: lookup_embedder
     +++: +++
-  relation_embedder: 
+  relation_embedder:
     type: lookup_embedder
     +++: +++
-  l_norm: 1.                        
-  reciprocal_relations: True        # bool
-  lambda_head: 0.5                  # [0,1]
-  lambda_relation: 0.5              # [0,1]
-  lambda_tail: 0.5                  # [0,1]
-  learn_lambda: False               # bool
-  rho: 0.7                          # [0,1)
+  l_norm: 1.
