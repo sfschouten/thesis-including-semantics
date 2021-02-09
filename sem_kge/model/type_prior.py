@@ -208,7 +208,7 @@ class TypePrior(KgeModel):
                 result2 = default_tensor(T_t, T_h)
         elif corrupted == "p":
             if lambda_head > 0:
-                result1 = lambda_head * self._s(T_r_head, T_h).log() 
+                result1 = lambda_head * self._s(T_r_head, T_h).log()
             else:
                 result1 = default_tensor(T_r_head, T_h)
             if lambda_tail > 0:
@@ -217,14 +217,13 @@ class TypePrior(KgeModel):
                 result2 = default_tensor(T_r_tail, T_t)
         elif corrupted == "o":
             if lambda_tail > 0:
-                result1 = lambda_tail * self._s(T_r_tail, T_t).log() 
+                result1 = lambda_tail * self._s(T_r_tail, T_t).log()
             else:
                 result1 = default_tensor(T_r_tail, T_t)
             if lambda_relation > 0:
                 result2 = lambda_relation * self._s(T_h, T_t).log()
             else:
                 result2 = default_tensor(T_h, T_t)
-
         return result1 + result2
 
     def _batch_log_prior(self, s_typ, p_typ, o_typ, corrupted: str, combine: str):
