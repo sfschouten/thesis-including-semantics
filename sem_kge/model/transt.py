@@ -95,6 +95,12 @@ class TransT(KgeModel):
         lambda_relation = self.get_option("lambda_relation")
         lambda_tail = self.get_option("lambda_tail")
 
+        if config.get("train.auto_correct"):
+            lambda_head = min(max(0, lambda_head), 1)
+            lambda_tail = min(max(0, lambda_tail), 1)
+            lambda_relation = min(max(0, lambda_relation), 1)
+            config.log(f"lambdas: {(lambda_head, lambda_relation, lambda_tail)}")
+
         lambda_head = torch.full((1,), lambda_head, device=device)
         lambda_relation = torch.full((1,), lambda_relation, device=device)
         lambda_tail = torch.full((1,), lambda_tail, device=device)
@@ -102,7 +108,6 @@ class TransT(KgeModel):
         learn_lambda = self.get_option("learn_lambda")
 
         if learn_lambda:
-            # TODO add log statements informing of the change
             if lambda_head == 0:
                 lambda_head += torch.finfo().eps
                 config.log(f"To allow positive gradients lambda_head has been set to {lambda_head.item()}")
@@ -154,7 +159,7 @@ class TransT(KgeModel):
         other_size = T_1.sum(dim=1).float()
         
         result = intersection_size / other_size
-        result += 1e-2 #18 # prevent log(0)
+        result += 1e-2 # prevent log(0)
        
         # If |T_1| = 0, than the numerator and denominator are both 0
         #   therefore the outcome should be ... TODO 
@@ -162,9 +167,6 @@ class TransT(KgeModel):
         return result
 
     def _log_prior(self, T_h, T_r_head, T_r_tail, T_t, corrupted):
-        result1 = 0
-        result2 = 0
-        
         lambda_head = self._loglambda_head.sigmoid()
         lambda_relation = self._loglambda_relation.sigmoid()
         lambda_tail = self._loglambda_tail.sigmoid()
@@ -173,25 +175,42 @@ class TransT(KgeModel):
         lambda_relation = 1 if lambda_relation.isinf() else lambda_relation 
         lambda_tail = 1 if lambda_tail.isinf() else lambda_tail 
 
+        def default_tensor(T_1, T_2, ignores=frozenset((1,))):
+            shape = tuple( max(T_1.shape[i], T_2.shape[i]) for i in range(len(T_1.shape)) if i not in ignores )
+            return torch.zeros(tuple(1 for _ in shape), device=self.device).expand(shape)
+        
         if corrupted == "s":
             if lambda_head > 0:
-                result1 = lambda_head * self._s(T_r_head, T_h).log() 
+                result1 = lambda_head * self._s(T_r_head, T_h).log()
+            else:
+                result1 = default_tensor(T_r_head, T_h)
             if lambda_relation > 0:
                 result2 = lambda_relation * self._s(T_t, T_h).log()
+            else:
+                result2 = default_tensor(T_t, T_h)
         elif corrupted == "p":
             if lambda_head > 0:
                 result1 = lambda_head * self._s(T_r_head, T_h).log() 
+            else:
+                result1 = default_tensor(T_r_head, T_h)
             if lambda_tail > 0:
                 result2 = lambda_tail * self._s(T_r_tail, T_t).log()
+            else:
+                result2 = default_tensor(T_r_tail, T_t)
         elif corrupted == "o":
             if lambda_tail > 0:
                 result1 = lambda_tail * self._s(T_r_tail, T_t).log() 
+            else:
+                result1 = default_tensor(T_r_tail, T_t)
             if lambda_relation > 0:
                 result2 = lambda_relation * self._s(T_h, T_t).log()
+            else:
+                result2 = default_tensor(T_h, T_t)
+
         return result1 + result2
 
     def _batch_log_prior(self, s_typ, p_typ, o_typ, corrupted: str, combine: str):
-        BS = 32 #TODO: make this configurable
+        BS = 16 #TODO: make this configurable
         p_typ_h, p_typ_t = p_typ
         if combine == "sp_":
             s_typ, p_typ_h, p_typ_t = s_typ.unsqueeze(2), p_typ_h.unsqueeze(2), p_typ_t.unsqueeze(2)
@@ -281,9 +300,15 @@ class TransT(KgeModel):
                 o_emb_j = o_emb[:,:,j]
 
                 # weights of inactive vectors will be 0, so won't be summed
-                loglikelihood = self._scorer.score_emb(
-                    s_emb_i, p_emb, o_emb_j, combine="spo"
-                ).squeeze()
+                if not self.recrel or direction == "o":
+                    loglikelihood = self._scorer.score_emb(
+                        s_emb_i, p_emb, o_emb_j, combine="spo"
+                    ).squeeze()
+                elif self.recrel and direction == "s":
+                    loglikelihood = self._scorer.score_emb(
+                        o_emb_j, p_emb, s_emb_i, combine="spo"
+                    ).squeeze()
+                    
                 part_loglikelihoods[:,i,j] = loglikelihood
         w_s, w_o = w_s.unsqueeze(2), w_o.unsqueeze(1)
 
