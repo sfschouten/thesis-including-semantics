@@ -1,8 +1,8 @@
 
 import: [lookup_embedder]
 
-multiple_embedder:
-  class_name: MultipleEmbedder
+discrete_stochastic_embedder:
+  class_name: DiscreteStochasticEmbedder
   base_embedder:
     type: lookup_embedder
     +++: +++

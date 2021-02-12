@@ -2,9 +2,9 @@ import torch
 import torch.nn.functional as F
 
 from kge.model import KgeEmbedder
-from sem_kge.model.embedder import MultipleEmbedder
+from sem_kge.model.embedder import DiscreteStochasticEmbedder
 
-class GrowingMultipleEmbedder(MultipleEmbedder):
+class TransTEmbedder(DiscreteStochasticEmbedder):
     """ Embedder that associates each entity with multiple embeddings, and allows
     the number of embeddings for each entity to grow according to a Chinese 
     Restaurant Process. It was presented in the paper "TransT: Type-Based 

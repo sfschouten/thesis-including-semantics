@@ -15,8 +15,8 @@ import:
 - transt
 - type_prior
 - reciprocal_relations_model
-- growing_embedder
-growing_embedder:
+- transt_embedder
+transt_embedder:
   dim: 128
   nr_embeds: 2
   initialize: uniform_
@@ -69,10 +69,9 @@ train:
   type: negative_sampling
 transt:
   entity_embedder:
-    type: growing_embedder
-    dropout: -0.12961751874536276
+    type: transt_embedder
     normalize.p: 2.0
-    regularize_weight: 1.0578209241264233e-12
+    regularize_weight: 7.469488745511875e-12
   l_norm: 1.0
   relation_embedder:
     regularize_weight: 2.7150262251210395e-14

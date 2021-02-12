@@ -3,7 +3,7 @@ from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 from torch.nn import functional as F
 
-from sem_kge.model import MultipleEmbedder, GrowingMultipleEmbedder
+from sem_kge.model import DiscreteStochasticEmbedder, TransTEmbedder
 
 class TransTScorer(RelationalScorer):
     r"""Implementation of the TransE KGE scorer."""
@@ -31,7 +31,7 @@ class TransTScorer(RelationalScorer):
         
     def score_emb(self, s_emb, p_emb, o_emb, combine: str):
       
-        if isinstance(self.embedder, MultipleEmbedder):
+        if isinstance(self.embedder, DiscreteStochasticEmbedder):
             s_emb, w_s = s_emb                                      # B x M
             o_emb, w_o = o_emb
         else:
@@ -39,9 +39,11 @@ class TransTScorer(RelationalScorer):
             w_o = torch.ones((B,1), device=self.device)
 
         B, M = w_s.shape
-        N = 1 if combine == "spo" else w_o.shape[0]
 
-        part_loglikelihoods = torch.full((B,M,M,N), float('-inf'), device=self.device)
+        # Y is either 1 or the total number of entities if this is a 'sp_' case.
+        Y = 1 if combine == "spo" else w_o.shape[0]
+
+        part_loglikelihoods = torch.full((B,M,M,Y), float('-inf'), device=self.device)
             
         for i in range(s_emb.shape[2]):
             for j in range(o_emb.shape[2]):
@@ -55,24 +57,23 @@ class TransTScorer(RelationalScorer):
                 # weights of inactive vectors will be 0, so won't be summed
                 loglikelihood = self._score_translation(
                     s_emb_i, p_emb, o_emb_j, combine=combine
-                ).squeeze()
-                part_loglikelihoods[:,i,j] = loglikelihood.view(-1, N)
+                )
+                part_loglikelihoods[:,i,j] = loglikelihood.squeeze().view(-1, Y)
         
         if combine == "spo":
             w_s, w_o = w_s.view(B, M, 1, 1), w_o.view(B, 1, M, 1)
         elif combine == "sp_":
-            w_s, w_o = w_s.view(B, M, 1, 1), w_o.view(1, 1, M, N)
+            w_s, w_o = w_s.view(B, M, 1, 1), w_o.view(1, 1, M, Y)
 
         # perform modified logsumexp trick
-        x = part_loglikelihoods                         # B x M x M x [1|N]
-        c,_ = x.max(dim=1, keepdims=True)               # B x 1 x M x [1|N]
-        c,_ = c.max(dim=2, keepdims=True)               # B x 1 x 1 x [1|N]
-        weighted_exp = w_s * w_o * (x - c).exp()        # B x 1 x 1 x [1|N]
+        x = part_loglikelihoods                         # B x M x M x Y
+        c,_ = x.max(dim=1, keepdims=True)               # B x 1 x M x Y
+        c,_ = c.max(dim=2, keepdims=True)               # B x 1 x 1 x Y
+        weighted_exp = w_s * w_o * (x - c).exp()        # B x 1 x 1 x Y
 
         loglikelihood = c.squeeze(dim=1).squeeze(dim=1) \
                       + weighted_exp.sum(dim=1).sum(dim=1).log()
         loglikelihood = loglikelihood.squeeze()
-
         return loglikelihood
 
 class TransT(KgeModel):

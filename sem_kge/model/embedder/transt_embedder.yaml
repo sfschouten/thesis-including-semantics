@@ -1,8 +1,8 @@
 
 import: [lookup_embedder]
 
-growing_embedder:
-  class_name: GrowingMultipleEmbedder
+transt_embedder:
+  class_name: TransTEmbedder
   base_embedder:
     type: lookup_embedder
     +++: +++
