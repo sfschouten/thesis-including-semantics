@@ -11,12 +11,4 @@ transt_embedder:
   stochastic: False
   distribution: relaxed_one_hot_categorical
   crp_beta: 0.0001          # CRP scaling parameter
-  initialize: normal_         # options: [xavier, uniform, normal]
-  initialize_args:          
-    +++: +++
   dropout: 0.               # dropout used for embeddings
-  regularize: 'lp'            # options: ['', 'lp']
-  regularize_weight: 0.0
-  regularize_args:
-    weighted: False
-    p: 2.0

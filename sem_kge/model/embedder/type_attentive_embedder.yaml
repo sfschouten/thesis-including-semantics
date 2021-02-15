@@ -1,0 +1,15 @@
+import: [lookup_embedder]
+
+type_attentive_embedder:
+  class_name: TypeAttentiveEmbedder
+  base_embedder:
+    type: lookup_embedder
+    +++: +++
+  type_embedder:
+    type: lookup_embedder
+    +++: +++
+  dropout: 0.
+  dim: -1
+  attn_nhead: 1
+  regularize_args:
+    weighted: False
