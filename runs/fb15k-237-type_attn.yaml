@@ -14,6 +14,7 @@ eval:
 import:
 - transe
 - type_attentive_embedder
+- reciprocal_relations_model
 model: reciprocal_relations_model
 negative_sampling:
   num_samples:

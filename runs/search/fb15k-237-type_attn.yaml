@@ -27,6 +27,7 @@ eval:
 import:
 - transe
 - type_attentive_embedder
+- reciprocal_relations_model
 
 reciprocal_relations_model:
   base_model:
