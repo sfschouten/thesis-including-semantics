@@ -28,6 +28,9 @@ import:
 - transe
 - type_attentive_embedder
 
+reciprocal_relations_model:
+  base_model:
+    type: transe
 transe:
   entity_embedder:
     type: type_attentive_embedder
@@ -42,7 +45,7 @@ ax_search:
     # model
     - name: model
       type: fixed
-      value: transe
+      value: reciprocal_relations_model
       
     # training hyperparameters
     - name: train.batch_size

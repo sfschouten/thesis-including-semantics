@@ -14,7 +14,7 @@ eval:
 import:
 - transe
 - type_attentive_embedder
-model: transe
+model: reciprocal_relations_model
 negative_sampling:
   num_samples:
     o: 19 #192
@@ -36,6 +36,9 @@ train:
     lr: 0.0003
   type: negative_sampling
 lookup_embedder.dim: 128
+reciprocal_relations_model:
+  base_model:
+    type: transe
 transe:
   entity_embedder:
     type: type_attentive_embedder
