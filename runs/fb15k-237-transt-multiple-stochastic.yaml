@@ -15,77 +15,75 @@ import:
 - transt
 - type_prior
 - reciprocal_relations_model
-- growing_embedder
-growing_embedder:
+- multiple_embedder
+multiple_embedder:
   dim: 128
-  nr_embeds: 2
+  nr_embeds: 4
+  stochastic: True
   initialize: uniform_
   initialize_args:
     normal_:
       mean: 0.0
-      std: 4.314427606172353e-05
+      std: 3.5688807324453804e-05
     uniform_:
-      a: -0.6992891560219134
+      a: -1.0000000000065512e-05
     xavier_normal_:
       gain: 1.0
     xavier_uniform_:
       gain: 1.0
-  regularize: 'lp'
+  regularize: ''
 lookup_embedder:
   dim: 128
-  initialize: xavier_uniform_
+  initialize: uniform_
   initialize_args:
     normal_:
       mean: 0.0
-      std: 4.314427606172353e-05
+      std: 3.5688807324453804e-05
     uniform_:
-      a: -0.6992891560219134
+      a: -1.0000000000065512e-05
     xavier_normal_:
       gain: 1.0
     xavier_uniform_:
       gain: 1.0
-  regularize: 'lp'
+  regularize: ''
 model: type_prior 
 negative_sampling:
   num_samples:
-    o: 125
+    o: 192
     p: -1
-    s: 137
+    s: 61
 train:
   auto_correct: true
   batch_size: 128
-  loss: kl
-  loss_arg: 4.610417988151312
+  loss: margin_ranking
+  loss_arg: 3.0
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95
     mode: max
-    patience: 2
+    patience: 5
     threshold: 0.0001
   max_epochs: 400
-  optimizer: Adagrad
+  optimizer: Adam
   optimizer_args:
-    lr: 0.04213990046519199
+    lr: 0.0003
   type: negative_sampling
 transt:
   entity_embedder:
-    type: growing_embedder
-    dropout: -0.12961751874536276
-    normalize.p: 2.0
-    regularize_weight: 1.0578209241264233e-12
+    type: multiple_embedder
+    normalize:
+      p: 2.0
+    regularize_weight: 7.469488745511875e-12
   l_norm: 1.0
   relation_embedder:
-    regularize_weight: 2.7150262251210395e-14
-    normalize.p: -1.0
-    dropout: 0.11680278182029724
+    regularize_weight: 1.8180176908040284e-07
 reciprocal_relations_model:
   base_model:
     type: transt
 type_prior:
-  rho: 0.7314586686901748
-  lambda_head: 0.352859390899539
-  lambda_relation: -0.46099785156548023
-  lambda_tail: 0.9701304156333208
+  lambda_head: 1.
+  lambda_relation: 0.
+  lambda_tail: 1.
   learn_lambda: False
   base_model:
     type: reciprocal_relations_model
@@ -98,3 +96,4 @@ valid:
       epochs: 50
       metric_value: 0.05
     patience: 10
+

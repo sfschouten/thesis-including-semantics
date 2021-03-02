@@ -18,7 +18,7 @@ import:
 - multiple_embedder
 multiple_embedder:
   dim: 128
-  nr_embeds: 2
+  nr_embeds: 4
   initialize: uniform_
   initialize_args:
     normal_:
