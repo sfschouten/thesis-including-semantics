@@ -5,7 +5,7 @@ job:
       project: sem_kge
       group: transe
 dataset:
-  name: fb15k-237-typed
+  name: fb15k-237
 eval:
   batch_size: 256
   metrics_per:
@@ -14,7 +14,6 @@ eval:
   num_workers: 2
 import:
 - transe
-- type_attentive_embedder
 - reciprocal_relations_model
 model: reciprocal_relations_model
 negative_sampling:
@@ -22,8 +21,6 @@ negative_sampling:
     s: 61
     p: -1
     o: 192
-  shared: True
-  implementation: batch
 train:
   auto_correct: true
   batch_size: 128
@@ -44,13 +41,11 @@ reciprocal_relations_model:
   base_model:
     type: transe
 transe:
-  entity_embedder:
-    type: type_attentive_embedder
   l_norm: 2.0
   relation_embedder:
     regularize_weight: 1.8180176908040284e-07
 entity_ranking:
-  chunk_size: 1024
+  chunk_size: 256
 valid:
   every: 1
   early_stopping:

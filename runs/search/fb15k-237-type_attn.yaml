@@ -51,7 +51,7 @@ ax_search:
     # training hyperparameters
     - name: train.batch_size
       type: choice
-      values: [32, 64, 128] # [128, 256, 512, 1024]
+      values: [128, 256, 512, 1024]
       is_ordered: True
     - name: train.type
       type: fixed
@@ -90,7 +90,7 @@ ax_search:
     # embedding dimension
     - name: lookup_embedder.dim
       type: choice 
-      values: [32, 64, 128, 256, 512]
+      values: [64, 128, 256, 512]
       is_ordered: True
       
     # embedding initialization
@@ -155,6 +155,18 @@ ax_search:
       type: range                             #train_type = negative_sampling
       bounds: [1, 1000]                       #train_type = negative_sampling
       log_scale: True                         #train_type = negative_sampling
+    - name: negative_sampling.shared
+      type: fixed
+      value: True
+    - name: negative_sampling.implementation
+      type: fixed
+      value: batch
+      
+      
+    #
+    - name: entity_ranking.chunk_size
+      type: fixed
+      value: 1024
       
     # margin
     - name: train.loss_arg
