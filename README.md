@@ -62,7 +62,7 @@ For an example on how to do the entire installation process and use the package 
 |                                                                                                       |   MRR | Mean Rank | Hits@1 | Hits@3 | Hits@10 |                                                                                 Config file |
 |-------------------------------------------------------------------------------------------------------|------:|----------:|-------:|-------:|--------:|--------------------------------------------------------------------------------------------:|
 | [TransE](https://papers.nips.cc/paper/5071-translating-embeddings-for-modeling-multi-relational-data) | 0.228 |  -        | 0.053  |  0.368 |   0.520 |   [config.yaml](http://web.informatik.uni-mannheim.de/pi1/iclr2020-models/wnrr-transe.yaml) |
-| TransT-type (ours/best)                                                                               |       |           |        |        |         |   [todo]() |
+| TransT-type (ours/best)                                                                               | 0.191 |  4617     | 0.012  |  0.358 |   0.438 |   [todo]() |
 | TransT-type-only (ours/best)                                                                          |       |           |        |        |         |   [todo]() |
 
 #### FB15K (Freebase)
