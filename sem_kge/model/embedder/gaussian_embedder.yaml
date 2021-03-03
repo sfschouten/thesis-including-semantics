@@ -1,0 +1,18 @@
+
+import: [lookup_embedder]
+
+gaussian_embedder:
+  class_name: GaussianEmbedder
+  mean_embedder:
+    type: lookup_embedder
+    +++: +++
+  stdv_embedder:
+    type: lookup_embedder
+    initialize: constant_
+    initialize_args:
+      val: 0.
+    +++: +++
+  dim: 100
+  kl_div_factor: 1.
+  regularize_args:
+    weighted: False

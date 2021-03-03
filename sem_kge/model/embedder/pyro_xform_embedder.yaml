@@ -1,0 +1,25 @@
+
+import: [lookup_embedder]
+
+pyro_xform_embedder:
+  class_name: PyroXformEmbedder
+  cntx_embedder:
+    type: lookup_embedder
+    +++: +++
+  mean_embedder:
+    type: lookup_embedder
+    +++: +++
+  stdv_embedder:
+    type: lookup_embedder
+    initialize: constant_
+    initialize_args:
+      val: 0.
+    +++: +++
+  dim: 100
+  context_dim: 50
+  hidden_dims:
+    - 150
+    - 150
+  kl_div_factor: 1.
+  regularize_args:
+    weighted: False
