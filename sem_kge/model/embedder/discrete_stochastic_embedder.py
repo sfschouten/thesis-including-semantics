@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from kge.model import KgeEmbedder
 
 
-class MultipleEmbedder(KgeEmbedder):
+class DiscreteStochasticEmbedder(KgeEmbedder):
     """ 
     Embedder that assigns multiple embeddings to each entity/relation.
     """

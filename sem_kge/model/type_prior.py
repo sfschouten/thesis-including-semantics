@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn.parameter import Parameter
 
-from sem_kge.model.embedder import MultipleEmbedder, GrowingMultipleEmbedder
+from sem_kge.model.embedder import DiscreteStochasticEmbedder, TransTEmbedder
 from sem_kge import TypedDataset
 
 from kge import Config, Dataset
@@ -161,8 +161,8 @@ class TypePrior(KgeModel):
         # TODO Rather than checking for a specific class, create interface
         # for all embedders that might need type information
 
-        # initialize the GrowingMultipleEmbedder
-        if isinstance(self.get_s_embedder(), GrowingMultipleEmbedder):
+        # initialize the TransTEmbedder
+        if isinstance(self.get_s_embedder(), TransTEmbedder):
             self.get_s_embedder().initialize_semantics(types_tensor)
 
 
@@ -281,7 +281,7 @@ class TypePrior(KgeModel):
             loglikelihood = self._base_model.score_spo(s, p, o, direction=direction)
         
         if self._entity_embedder and \
-           isinstance(self._entity_embedder, GrowingMultipleEmbedder):
+           isinstance(self._entity_embedder, TransTEmbedder):
             p_emb = self.get_p_embedder().embed(p)
             self._entity_embedder.update(
                 (s,p,o),p_emb,(s_t,r_t,o_t),

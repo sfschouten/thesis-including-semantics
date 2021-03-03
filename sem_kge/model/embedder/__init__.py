@@ -1,3 +1,4 @@
 
-from sem_kge.model.embedder.multiple_embedder import MultipleEmbedder
-from sem_kge.model.embedder.growing_embedder import GrowingMultipleEmbedder
+from sem_kge.model.embedder.discrete_stochastic_embedder import DiscreteStochasticEmbedder
+from sem_kge.model.embedder.transt_embedder import TransTEmbedder
+from sem_kge.model.embedder.type_attentive_embedder import TypeAttentiveEmbedder

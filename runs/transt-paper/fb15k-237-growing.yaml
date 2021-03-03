@@ -13,8 +13,8 @@ eval:
   trace_level: example
 import:
 - transt
-- growing_embedder
-growing_embedder:
+- transt_embedder
+transt_embedder:
   dim: 300
   nr_embeds: 5
 lookup_embedder:

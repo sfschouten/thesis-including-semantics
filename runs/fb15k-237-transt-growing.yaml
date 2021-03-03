@@ -15,22 +15,22 @@ import:
 - transt
 - type_prior
 - reciprocal_relations_model
-- growing_embedder
-growing_embedder:
+- transt_embedder
+transt_embedder:
   dim: 128
   nr_embeds: 2
   initialize: uniform_
   initialize_args:
     normal_:
       mean: 0.0
-      std: 4.314427606172353e-05
+      std: 3.5688807324453804e-05
     uniform_:
-      a: -0.6992891560219134
+      a: -1.0000000000065512e-05
     xavier_normal_:
       gain: 1.0
     xavier_uniform_:
       gain: 1.0
-  regularize: 'lp'
+  regularize: ''
 lookup_embedder:
   dim: 128
   initialize: xavier_uniform_
@@ -69,10 +69,9 @@ train:
   type: negative_sampling
 transt:
   entity_embedder:
-    type: growing_embedder
-    dropout: -0.12961751874536276
+    type: transt_embedder
     normalize.p: 2.0
-    regularize_weight: 1.0578209241264233e-12
+    regularize_weight: 7.469488745511875e-12
   l_norm: 1.0
   relation_embedder:
     regularize_weight: 2.7150262251210395e-14
