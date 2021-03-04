@@ -61,31 +61,23 @@ class IAFEmbedder(GaussianEmbedder):
             
             job.loss = modified_loss
    
-    def _sample(self, cntx, mu, sigma):
-        B,_ = cntx.shape
+    def _transform(self, sample, cntx):
+        transform = self.transform.condition(cntx)        
+        iaf_sample = transform(sample)
     
-        transform = self.transform.condition(cntx)
-        
-        sample1 = super()._sample(mu, sigma)
-        sample2 = transform(sample1)
+        self.last_ldj = transform.log_abs_det_jacobian(sample, iaf_sample).mean()
     
-        self.last_ldj = transform.log_abs_det_jacobian(sample1, sample2).mean()
-    
-        return sample2
+        return iaf_sample
         
     def embed(self, indexes):
-        self.last_indexes = indexes
+        sample = super().embed(indexes)
         cntx = self.cntx_embedder.embed(indexes)
-        mu = self.mean_embedder.embed(indexes)
-        sigma = F.softplus(self.stdv_embedder.embed(indexes))
-        return self._sample(cntx, mu, sigma)
+        return self._transform(sample, cntx)
 
     def embed_all(self):
-        self.last_indexes = None
+        sample = super().embed_all()
         cntx = self.cntx_embedder.embed_all()
-        mu = self.mean_embedder.embed_all()
-        sigma = F.softplus(self.stdv_embedder.embed_all())
-        return self._sample(cntx, mu, sigma)
+        return self._transform(sample, cntx)
 
 
         
