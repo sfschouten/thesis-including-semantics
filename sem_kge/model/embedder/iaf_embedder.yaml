@@ -1,8 +1,8 @@
 
 import: [lookup_embedder]
 
-pyro_xform_embedder:
-  class_name: PyroXformEmbedder
+iaf_embedder:
+  class_name: IAFEmbedder
   cntx_embedder:
     type: lookup_embedder
     +++: +++

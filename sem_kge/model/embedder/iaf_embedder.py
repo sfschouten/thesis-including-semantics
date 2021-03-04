@@ -13,11 +13,12 @@ from pyro.distributions import ConditionalTransformedDistribution
 
 from kge.model import KgeEmbedder
 from sem_kge.model import GaussianEmbedder
+from kge.job.train import TrainingJob
 
 from typing import List
 
 
-class PyroXformEmbedder(GaussianEmbedder):
+class IAFEmbedder(GaussianEmbedder):
     """ 
     
     """
@@ -46,61 +47,47 @@ class PyroXformEmbedder(GaussianEmbedder):
         
         hypernet = ConditionalAutoRegressiveNN(base_dim, context_dim, hidden_dims)
         self.transform = ConditionalAffineAutoregressive(hypernet)
-
-        pyro.module("my_transform", self.transform)        
         
-        self.last_kl = None
+        self.last_ldj = None
+   
+    def prepare_job(self, job: "Job", **kwargs):
+        super().prepare_job(job, **kwargs)
         
+        if isinstance(job, TrainingJob):
+            original_loss = job.loss
+            
+            def modified_loss(*args, **kwargs):
+                return -self.last_ldj + original_loss(*args, **kwargs)
+            
+            job.loss = modified_loss
+   
     def _sample(self, cntx, mu, sigma):
-        base_dist = self.DIST(mu, sigma)
-        flow_dist = ConditionalTransformedDistribution(base_dist, [self.transform])
-        flow_dist = flow_dist.condition(cntx)
-        sample = flow_dist.rsample().squeeze()
-        self.last_kl = flow_dist.log_prob(sample)
-        self.last_kl -= self.prior.log_prob(sample).sum(dim=-1)
-        return sample
+        B,_ = cntx.shape
+    
+        transform = self.transform.condition(cntx)
+        
+        sample1 = super()._sample(mu, sigma)
+        sample2 = transform(sample1)
+    
+        self.last_ldj = transform.log_abs_det_jacobian(sample1, sample2).mean()
+    
+        return sample2
         
     def embed(self, indexes):
         self.last_indexes = indexes
         cntx = self.cntx_embedder.embed(indexes)
         mu = self.mean_embedder.embed(indexes)
-        sigma = self.stdv_embedder.embed(indexes)
+        sigma = F.softplus(self.stdv_embedder.embed(indexes))
         return self._sample(cntx, mu, sigma)
 
     def embed_all(self):
         self.last_indexes = None
         cntx = self.cntx_embedder.embed_all()
         mu = self.mean_embedder.embed_all()
-        sigma = self.stdv_embedder.embed_all()
+        sigma = F.softplus(self.stdv_embedder.embed_all())
         return self._sample(cntx, mu, sigma)
 
-    def penalty(self, **kwargs) -> List[Tensor]:
-        #result = super().penalty(**kwargs)
-        result = []
-        
-        #indexes = self.last_indexes
-        #if indexes != None:
-        #    cntx = self.cntx_embedder.embed(indexes)
-        #    mu = self.mean_embedder.embed(indexes)
-        #    sigma = self.stdv_embedder.embed(indexes)
-        #else:
-        #    cntx = self.cntx_embedder.embed_all()
-        #    mu = self.mean_embedder.embed_all()
-        #    sigma = self.stdv_embedder.embed_all()
 
-        #base_dist = self.DIST(mu, sigma)
-        #flow_dist = ConditionalTransformedDistribution(base_dist, [self.transform])
-        #flow_dist = flow_dist.condition(cntx)
-        
-        result += [
-            (
-                f"{self.configuration_key}.regularization_loss",
-                self.last_kl.mean()
-            )
-        ]
-        
-        return result
-        
         
         
         
