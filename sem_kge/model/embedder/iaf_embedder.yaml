@@ -3,6 +3,7 @@ import: [lookup_embedder]
 
 iaf_embedder:
   class_name: IAFEmbedder
+  
   cntx_embedder:
     type: lookup_embedder
     +++: +++
@@ -13,13 +14,24 @@ iaf_embedder:
     type: lookup_embedder
     initialize: constant_
     initialize_args:
-      val: 0.
+      val: 0.01
     +++: +++
   dim: 100
   context_dim: 50
   hidden_dims:
     - 150
     - 150
-  kl_div_factor: 1.
+  
+  # kl-divergence
+  kl_max_threshold: 0.5
+  kl_max_scale: 1.
+  kl_max_damping: 1.
+  
+  # log determinant of jacobian
+  ldj_min_threshold: -1.     # This determinant measures loss of probability volume,
+                             # setting a min of 0, would mean no volume may be lost.
+  ldj_min_scale: 1.
+  ldj_min_damping: 1.
+  
   regularize_args:
     weighted: False

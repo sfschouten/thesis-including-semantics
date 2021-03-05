@@ -10,6 +10,8 @@ from kge.job.train import TrainingJob
 
 from typing import List
 
+import mdmm
+
 
 class GaussianEmbedder(KgeEmbedder):
     """ 
@@ -53,40 +55,75 @@ class GaussianEmbedder(KgeEmbedder):
         )
 
         self.device = self.config.get("job.device")
-        self.kl_div_factor = self.get_option("kl_div_factor")
     
         self.prior = self.DIST(
             torch.tensor([0.0], device=self.device, requires_grad=False).expand(base_dim).unsqueeze(0),
             torch.tensor([1.0], device=self.device, requires_grad=False).expand(base_dim).unsqueeze(0)
         )
     
-        self.last_regularization_loss = None
+        self.last_regularization_loss = torch.zeros((1))
         
-    def prepare_job(self, job: "Job", **kwargs):     
-    
-        if isinstance(job, TrainingJob):   
+    def prepare_job(self, job: "Job", **kwargs):
+
+        if isinstance(job, TrainingJob):
+            # use Modified Differential Multiplier Method for regularization loss
+            max_kl_constraint = mdmm.MaxConstraint(
+                lambda: self.last_regularization_loss,
+                self.get_option("kl_max_threshold"),
+                scale = self.get_option("kl_max_scale"), 
+                damping = self.get_option("kl_max_damping")
+            )
+            mdmm_module = mdmm.MDMM([max_kl_constraint])
+            
+            # update optimizer
+            lambdas = [max_kl_constraint.lmbda]
+            slacks = [max_kl_constraint.slack]
+            
+            lr = next(g['lr'] for g in job.optimizer.param_groups if g['name'] == 'default')
+            job.optimizer.add_param_group({'params': lambdas, 'lr': -lr})
+            job.optimizer.add_param_group({'params': slacks, 'lr': lr})
+            
             original_loss = job.loss
             
             def modified_loss(*args, **kwargs):
-                return self.last_regularization_loss + original_loss(*args, **kwargs)
+                return mdmm_module(original_loss(*args, **kwargs)).value
             
-            job.loss = modified_loss
+            job.loss = modified_loss        
+
+        # trace the regularization loss
+        def trace_regularization_loss(job):
+            job.current_trace["batch"]["regularization_loss"] = self.last_regularization_loss.item()
+            if isinstance(job, TrainingJob):
+                job.current_trace["batch"]["regularization_lambda"] = max_kl_constraint.lmbda.item()
+
+        from kge.job import TrainingOrEvaluationJob
+        if isinstance(job, TrainingOrEvaluationJob):
+            job.pre_batch_hooks.append(trace_regularization_loss)
+
 
     def _sample(self, mu, sigma):
         dist = self.DIST(mu, sigma)
-        sample = dist.rsample().squeeze()
         self.last_regularization_loss = kl_divergence(dist, self.prior).mean()
+        
+        sample_shape = torch.Size([1 if self.training else 10])
+        sample = dist.rsample(sample_shape=sample_shape)
         return sample
 
+    def _embed(self, indexes):
+        mu = self.mean_embedder.embed(indexes)
+        sigma = F.softplus(self.stdv_embedder.embed(indexes))
+        return self._sample(mu, sigma)
+
     def embed(self, indexes):
-        self.last_indexes = indexes
-        mu, sigma = self.mean_embedder.embed(indexes), F.softplus(self.stdv_embedder.embed(indexes))
+        return self._embed(indexes).mean(dim=0)
+
+    def _embed_all(self):
+        mu = self.mean_embedder.embed_all() 
+        sigma = F.softplus(self.stdv_embedder.embed_all())
         return self._sample(mu, sigma)
 
     def embed_all(self):
-        self.last_indexes = None
-        mu, sigma = self.mean_embedder.embed_all(), F.softplus(self.stdv_embedder.embed_all())
-        return self._sample(mu, sigma)
+        return self._embed_all().mean(dim=0)
 
         
 

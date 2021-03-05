@@ -13,6 +13,11 @@ gaussian_embedder:
       val: 0.
     +++: +++
   dim: 100
-  kl_div_factor: 1.
+  
+  # kl-divergence
+  kl_max_threshold: 0.5
+  kl_max_scale: 1.
+  kl_max_damping: 1.
+  
   regularize_args:
     weighted: False
