@@ -8,17 +8,18 @@ from torch.distributions.kl import kl_divergence
 from kge.model import KgeEmbedder
 from kge.job.train import TrainingJob
 
+from functools import partial
 from typing import List
+import importlib
 
 import mdmm
 
 
-class GaussianEmbedder(KgeEmbedder):
+class LocScaleEmbedder(KgeEmbedder):
     """ 
-    
+    Class for stochastic embeddings with distributions that take a `loc` and
+    a `scale` argument.
     """
-
-    DIST = torch.distributions.normal.Normal
 
     def __init__(
         self, config, dataset, configuration_key, 
@@ -28,35 +29,37 @@ class GaussianEmbedder(KgeEmbedder):
             config, dataset, configuration_key, init_for_load_only=init_for_load_only
         )
 
+        base_dim = self.get_option("dim")
+        dist_class = self.get_option("dist_class")
+        
+        self.dist_class = eval(dist_class)
         self.vocab_size = vocab_size
 
-        base_dim = self.get_option("dim")
-
-        # initialize mean_embedder
-        config.set(self.configuration_key + ".mean_embedder.dim", base_dim)
-        if self.configuration_key + ".mean_embedder.type" not in config.options:
+        # initialize loc_embedder
+        config.set(self.configuration_key + ".loc_embedder.dim", base_dim)
+        if self.configuration_key + ".loc_embedder.type" not in config.options:
             config.set(
-                self.configuration_key + ".mean_embedder.type",
-                self.get_option("mean_embedder.type"),
+                self.configuration_key + ".loc_embedder.type",
+                self.get_option("loc_embedder.type"),
             )
-        self.mean_embedder = KgeEmbedder.create(
-            config, dataset, self.configuration_key + ".mean_embedder", vocab_size 
+        self.loc_embedder = KgeEmbedder.create(
+            config, dataset, self.configuration_key + ".loc_embedder", vocab_size 
         )
         
-        # initialize stdv_embedder
-        config.set(self.configuration_key + ".stdv_embedder.dim", base_dim)
-        if self.configuration_key + ".stdv_embedder.type" not in config.options:
+        # initialize scale_embedder
+        config.set(self.configuration_key + ".scale_embedder.dim", base_dim)
+        if self.configuration_key + ".scale_embedder.type" not in config.options:
             config.set(
-                self.configuration_key + ".stdv_embedder.type",
-                self.get_option("stdv_embedder.type"),
+                self.configuration_key + ".scale_embedder.type",
+                self.get_option("scale_embedder.type"),
             )
-        self.stdv_embedder = KgeEmbedder.create(
-            config, dataset, self.configuration_key + ".stdv_embedder", vocab_size 
+        self.scale_embedder = KgeEmbedder.create(
+            config, dataset, self.configuration_key + ".scale_embedder", vocab_size 
         )
 
         self.device = self.config.get("job.device")
     
-        self.prior = self.DIST(
+        self.prior = self.dist_class(
             torch.tensor([0.0], device=self.device, requires_grad=False).expand(base_dim).unsqueeze(0),
             torch.tensor([1.0], device=self.device, requires_grad=False).expand(base_dim).unsqueeze(0)
         )
@@ -64,7 +67,10 @@ class GaussianEmbedder(KgeEmbedder):
         self.last_regularization_loss = torch.zeros((1))
         
     def prepare_job(self, job: "Job", **kwargs):
-
+        super().prepare_job(job, **kwargs)
+        self.loc_embedder.prepare_job(job, **kwargs)
+        self.scale_embedder.prepare_job(job, **kwargs)
+        
         if isinstance(job, TrainingJob):
             # use Modified Differential Multiplier Method for regularization loss
             max_kl_constraint = mdmm.MaxConstraint(
@@ -86,7 +92,9 @@ class GaussianEmbedder(KgeEmbedder):
             original_loss = job.loss
             
             def modified_loss(*args, **kwargs):
-                return mdmm_module(original_loss(*args, **kwargs)).value
+                test = original_loss(*args, **kwargs)
+                print(test)
+                return mdmm_module(test).value
             
             job.loss = modified_loss        
 
@@ -101,26 +109,36 @@ class GaussianEmbedder(KgeEmbedder):
             job.pre_batch_hooks.append(trace_regularization_loss)
 
 
-    def _sample(self, mu, sigma):
-        dist = self.DIST(mu, sigma)
-        self.last_regularization_loss = kl_divergence(dist, self.prior).mean()
+    def dist(self, indexes, calc_kl=True):
+        """
+        """
+            
+        mu = self.loc_embedder.embed(indexes)
+        sigma = F.softplus(self.scale_embedder.embed(indexes))
+        dist = self.dist_class(mu, sigma)
         
+        if calc_kl:
+            self.last_regularization_loss = kl_divergence(dist, self.prior).mean()
+        
+        return dist
+
+    def _sample(self, dist):
         sample_shape = torch.Size([1 if self.training else 10])
         sample = dist.rsample(sample_shape=sample_shape)
         return sample
 
     def _embed(self, indexes):
-        mu = self.mean_embedder.embed(indexes)
-        sigma = F.softplus(self.stdv_embedder.embed(indexes))
-        return self._sample(mu, sigma)
+        dist = self.dist(indexes)
+        return self._sample(dist)
 
     def embed(self, indexes):
         return self._embed(indexes).mean(dim=0)
 
     def _embed_all(self):
-        mu = self.mean_embedder.embed_all() 
-        sigma = F.softplus(self.stdv_embedder.embed_all())
-        return self._sample(mu, sigma)
+        mu = self.loc_embedder.embed_all() 
+        sigma = F.softplus(self.scale_embedder.embed_all())
+        dist = self.dist_class(mu, sigma)
+        return self._sample(dist)
 
     def embed_all(self):
         return self._embed_all().mean(dim=0)
