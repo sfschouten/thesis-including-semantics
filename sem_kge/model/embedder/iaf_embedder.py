@@ -57,6 +57,7 @@ class IAFEmbedder(KgeEmbedder):
         )
         
         hidden_dims = self.get_option("hidden_dims")
+        hidden_dims = [ max(h, base_dim+context_dim) for h in hidden_dims ]
         hypernet = ConditionalAutoRegressiveNN(base_dim, context_dim, hidden_dims)
         self.transform = ConditionalAffineAutoregressive(hypernet)
         
