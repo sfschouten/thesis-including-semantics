@@ -9,6 +9,7 @@ from kge.job.train import TrainingJob
 from sem_kge import TypedDataset
 
 from functools import partial
+import random
 
 import mdmm
 
@@ -115,15 +116,24 @@ class TypePriorEmbedder(KgeEmbedder):
 
     def _calc_prior_loss(self, indexes):
         types = self.entity_types[indexes]              # B x 2 x T
-        dist = self.prior_embedder.dist(types)          # B x 2 x T x D
         
         embeds = self.base_embedder.embed(indexes)      # B x 2 x D
         embeds = embeds.unsqueeze(2)                    # B x 2 x 1 x D
+        shape = list(types.shape) + [embeds.shape[3]]
+        embeds = embeds.expand(shape)                   # B x 2 x T x D
         
-        log_probs = dist.log_prob(embeds)
-        log_probs[types == self.PADDING_IDX] = 0
+        log_pdf = self.prior_embedder.log_pdf(embeds, types)
+        log_pdf[types == self.PADDING_IDX] = 0
         
-        self.nll_type_prior = -log_probs.sum(2).mean()
+        self.nll_type_prior = -log_pdf.sum(2).mean()
+        
+        #c = 1 #random.randint(0, types.shape[0])
+        #false_types = torch.cat((types[c:,:,:], types[:c,:,:]), dim=0)
+        
+        #log_pdf = self.prior_embedder.log_pdf(embeds, false_types)
+        #log_pdf[false_types == self.PADDING_IDX] = 0
+        
+        #self.nll_type_prior += log_pdf.sum(2).mean()
 
     def penalty(self, **kwargs):
         terms = super().penalty(**kwargs)
@@ -134,10 +144,9 @@ class TypePriorEmbedder(KgeEmbedder):
         self._calc_prior_loss(indexes)
         
         terms += [ ( 
-                    f"{self.configuration_key}.type_prior_nll", 
-                    self.mdmm_module(torch.zeros((1), device=self.device)).value
-                 ) ]
-        
+            f"{self.configuration_key}.type_prior_nll", 
+            self.mdmm_module(torch.zeros((1), device=self.device)).value
+        ) ]
         return terms
     
 

@@ -111,16 +111,25 @@ class LocScaleEmbedder(KgeEmbedder):
 
     def dist(self, indexes, calc_kl=True):
         """
+        Instantiates `self.dist_class` using the parameters obtained 
+        from embedding `indexes`.
         """
-            
         mu = self.loc_embedder.embed(indexes)
         sigma = F.softplus(self.scale_embedder.embed(indexes))
         dist = self.dist_class(mu, sigma)
-        
         if calc_kl:
             self.last_regularization_loss = kl_divergence(dist, self.prior).mean()
-        
         return dist
+
+    def log_pdf(self, points, indexes):
+        """
+        points:  the points at which the pdf is to be evaluated [* x D]
+        indexes: the indices of the loc/scale that are to parameterize the
+                 distribution [*]
+        returns: log of pdf [*]
+        """
+        dist = self.dist(indexes)
+        return dist.log_prob(points).mean(dim=-1)
 
     def _sample(self, dist):
         sample_shape = torch.Size([1 if self.training else 10])

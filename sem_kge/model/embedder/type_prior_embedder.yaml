@@ -10,11 +10,11 @@ type_prior_embedder:
     
   prior_embedder:
     type: loc_scale_embedder
-    scale_embedder.initialize_args.val: 0.1
+    scale_embedder.initialize_args.val: 0.1     #
     kl_max_threshold: 9999.9
     +++: +++
   
-  nll_max_threshold: 100.
+  nll_max_threshold: 35.
   nll_max_scale: 0.1
   nll_max_damping: 1.
   

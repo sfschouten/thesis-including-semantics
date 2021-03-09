@@ -15,7 +15,7 @@ loc_scale_embedder:
     type: lookup_embedder
     initialize: constant_
     initialize_args:
-      val: 0.
+      val: 0.1
     +++: +++
   
   # kl-divergence

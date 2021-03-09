@@ -60,8 +60,9 @@ class IAFEmbedder(KgeEmbedder):
         hypernet = ConditionalAutoRegressiveNN(base_dim, context_dim, hidden_dims)
         self.transform = ConditionalAffineAutoregressive(hypernet)
         
-        self.last_ldj = torch.zeros((1))
+        self.direction = self.check_option('direction', ['density-estimation', 'sampling'])
         
+        self.last_ldj = torch.zeros((1))
         
    
     def prepare_job(self, job: "Job", **kwargs):
@@ -102,10 +103,35 @@ class IAFEmbedder(KgeEmbedder):
         from kge.job import TrainingOrEvaluationJob
         if isinstance(job, TrainingOrEvaluationJob):
             job.pre_batch_hooks.append(trace_ldj)
-
+            
+            
+    def log_pdf(self, points, indexes):
+        """
+        points:  the points at which the pdf is to be evaluated [* x D]
+        indexes: the indices of the loc/scale that are to parameterize the
+                 distribution [*]
+        returns: log of pdf [*]
+        """
+        cntx = self.cntx_embedder.embed(indexes)
+        
+        if self.direction == 'density-estimation':
+            transform = self.transform
+        else:
+            transform = self.transform.inv
+        transform = transform.condition(cntx)
+        
+        points2 = transform(points)
+        log_pdf = self.base_embedder.log_pdf(points2, indexes)
+        log_pdf += transform.log_abs_det_jacobian(points, points2)
+        return log_pdf
 
     def _transform(self, samples, cntx):
-        transform = self.transform.condition(cntx)        
+        if self.direction == 'sampling':
+            transform = self.transform
+        else:
+            transform = self.transform.inv
+        transform = transform.condition(cntx)
+        
         iaf_samples = transform(samples)
     
         self.last_ldj = transform.log_abs_det_jacobian(samples, iaf_samples).mean()

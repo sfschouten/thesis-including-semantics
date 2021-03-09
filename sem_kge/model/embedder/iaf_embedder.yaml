@@ -4,6 +4,7 @@ import: [loc_scale_embedder]
 iaf_embedder:
   class_name: IAFEmbedder
   dim: 100
+  direction: sampling
   
   base_embedder:
     type: loc_scale_embedder
