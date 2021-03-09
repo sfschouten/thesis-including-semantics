@@ -40,11 +40,11 @@ reciprocal_relations_model:
         direction: density-estimation
 
 
-search.on_error: continue
+search.on_error: abort #continue
 
 ax_search:
-  num_trials: 1
-  num_sobol_trials: 1
+  num_trials: 30
+  num_sobol_trials: 30
   
   parameter_constraints:
     - lookup_embedder.dim <= type_prior_embedder.dim
