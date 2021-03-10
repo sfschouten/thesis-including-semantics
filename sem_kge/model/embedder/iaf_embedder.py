@@ -63,7 +63,7 @@ class IAFEmbedder(KgeEmbedder):
         
         self.direction = self.check_option('direction', ['density-estimation', 'sampling'])
         
-        self.last_ldj = torch.zeros((1))
+        self.last_ldj = torch.tensor(0)
         
    
     def prepare_job(self, job: "Job", **kwargs):
@@ -79,27 +79,20 @@ class IAFEmbedder(KgeEmbedder):
                 damping = self.get_option("ldj_min_damping")
             )
             mdmm_module = mdmm.MDMM([min_ldj_constraint])
+            misc.add_constraints_to_job(job, self.mdmm_module)
             
-            # update optimizer
-            lambdas = [min_ldj_constraint.lmbda]
-            slacks = [min_ldj_constraint.slack]
-            
-            lr = next(g['lr'] for g in job.optimizer.param_groups if g['name'] == 'default')
-            job.optimizer.add_param_group({'params': lambdas, 'lr': -lr})
-            job.optimizer.add_param_group({'params': slacks, 'lr': lr})
-            
+            # update loss
             original_loss = job.loss
-            
             def modified_loss(*args, **kwargs):
                 return mdmm_module(original_loss(*args, **kwargs)).value
-            
             job.loss = modified_loss
             
         # trace the ldj
         def trace_ldj(job):
-            job.current_trace["batch"]["ldj"] = self.last_ldj.item()
+            key = f"{self.configuration_key}.ldj"
+            job.current_trace["batch"][key] = self.last_ldj.item()
             if isinstance(job, TrainingJob):
-                job.current_trace["batch"]["ldj_lambda"] = min_ldj_constraint.lmbda.item()
+                job.current_trace["batch"][f"{key}_lambda"] = min_ldj_constraint.lmbda.item()
 
         from kge.job import TrainingOrEvaluationJob
         if isinstance(job, TrainingOrEvaluationJob):
@@ -122,8 +115,11 @@ class IAFEmbedder(KgeEmbedder):
         transform = transform.condition(cntx)
         
         points2 = transform(points)
+        ldj = transform.log_abs_det_jacobian(points, points2)
+        self.last_ldj = ldj.mean()
+        
         log_pdf = self.base_embedder.log_pdf(points2, indexes)
-        log_pdf += transform.log_abs_det_jacobian(points, points2)
+        log_pdf += ldj
         return log_pdf
 
     def _transform(self, samples, cntx):

@@ -7,6 +7,7 @@ from kge.model import KgeEmbedder
 from kge.job.train import TrainingJob
 
 from sem_kge import TypedDataset
+from sem_kge import misc
 
 from functools import partial
 import random
@@ -73,7 +74,7 @@ class TypePriorEmbedder(KgeEmbedder):
             config, dataset, self.configuration_key + ".prior_embedder", T + 1 # +1 for pad embed
         )
         
-        self.nll_type_prior = torch.zeros((1))
+        self.nll_type_prior = torch.tensor(0)
         
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
@@ -85,18 +86,11 @@ class TypePriorEmbedder(KgeEmbedder):
             max_prior_nll_constraint = mdmm.MaxConstraint(
                 lambda: self.nll_type_prior,
                 self.get_option("nll_max_threshold"),
-                scale = self.get_option("nll_max_scale"), 
+                scale = self.get_option("nll_max_scale"),
                 damping = self.get_option("nll_max_damping")
             )
             self.mdmm_module = mdmm.MDMM([max_prior_nll_constraint])
-            
-            # update optimizer
-            lambdas = [max_prior_nll_constraint.lmbda]
-            slacks = [max_prior_nll_constraint.slack]
-            
-            lr = next(g['lr'] for g in job.optimizer.param_groups if g['name'] == 'default')
-            job.optimizer.add_param_group({'params': lambdas, 'lr': -lr})
-            job.optimizer.add_param_group({'params': slacks, 'lr': lr})
+            misc.add_constraints_to_job(job, self.mdmm_module)
         
         # trace the regularization loss
         def trace_regularization_loss(job):

@@ -64,7 +64,7 @@ class LocScaleEmbedder(KgeEmbedder):
             torch.tensor([1.0], device=self.device, requires_grad=False).expand(base_dim).unsqueeze(0)
         )
     
-        self.last_regularization_loss = torch.zeros((1))
+        self.last_regularization_loss = torch.tensor(0)
         
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
@@ -80,29 +80,20 @@ class LocScaleEmbedder(KgeEmbedder):
                 damping = self.get_option("kl_max_damping")
             )
             mdmm_module = mdmm.MDMM([max_kl_constraint])
+            misc.add_constraints_to_job(job, self.mdmm_module)
             
-            # update optimizer
-            lambdas = [max_kl_constraint.lmbda]
-            slacks = [max_kl_constraint.slack]
-            
-            lr = next(g['lr'] for g in job.optimizer.param_groups if g['name'] == 'default')
-            job.optimizer.add_param_group({'params': lambdas, 'lr': -lr})
-            job.optimizer.add_param_group({'params': slacks, 'lr': lr})
-            
+            # update loss
             original_loss = job.loss
-            
             def modified_loss(*args, **kwargs):
-                test = original_loss(*args, **kwargs)
-                print(test)
-                return mdmm_module(test).value
-            
+                return mdmm_module(original_loss(*args, **kwargs)).value
             job.loss = modified_loss        
 
         # trace the regularization loss
         def trace_regularization_loss(job):
-            job.current_trace["batch"]["regularization_loss"] = self.last_regularization_loss.item()
+            key = f"{self.configuration_key}.kl"
+            job.current_trace["batch"][key] = self.last_regularization_loss.item()
             if isinstance(job, TrainingJob):
-                job.current_trace["batch"]["regularization_lambda"] = max_kl_constraint.lmbda.item()
+                job.current_trace["batch"][f"{key}_lambda"] = max_kl_constraint.lmbda.item()
 
         from kge.job import TrainingOrEvaluationJob
         if isinstance(job, TrainingOrEvaluationJob):
