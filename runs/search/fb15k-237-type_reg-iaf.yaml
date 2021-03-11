@@ -40,7 +40,7 @@ reciprocal_relations_model:
         direction: density-estimation
 
 
-search.on_error: abort #continue
+search.on_error: continue
 
 ax_search:
   num_trials: 30
@@ -66,8 +66,8 @@ ax_search:
       type: fixed
       value: negative_sampling
     - name: train.optimizer.default.type
-      type: fixed #choice
-      value: Adam # , Adagrad]
+      type: choice
+      values: [Adam, Adagrad]
       
     - name: train.loss
       type: fixed
@@ -75,7 +75,7 @@ ax_search:
       
     - name: train.optimizer.default.args.lr
       type: range
-      bounds: [0.0001, 1.]
+      bounds: [0.0001, 0.1]
       log_scale: True
     - name: train.lr_scheduler
       type: fixed
