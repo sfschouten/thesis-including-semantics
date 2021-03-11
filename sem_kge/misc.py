@@ -1,4 +1,6 @@
 
+import torch
+
 from torch.optim.adagrad import Adagrad
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
