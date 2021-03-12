@@ -8,9 +8,9 @@ def index_relation_types(dataset: "TypedDataset"):
     KEY = "relation_type_freqs"
     
     if KEY not in dataset._indexes:
-        dataset.config.log("Creating relation_type_freqs tensor.")
-        
         types_tensor = dataset.index("entity_type_set")
+        
+        dataset.config.log("Creating relation_type_freqs tensor.")
         
         R = dataset.num_relations()
         T = dataset.num_types()
