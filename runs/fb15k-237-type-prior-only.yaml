@@ -1,10 +1,6 @@
 modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 
-job:
-  external_tracking:
-    weights-and-biases:
-      project: sem_kge
-      group: transt
+job.type: eval
       
 dataset:
   name: fb15k-237-typed
@@ -13,42 +9,16 @@ eval:
   metrics_per:
     relation_type: true
   trace_level: example
+  split: test
+entity_ranking:
+  chunk_size: 128
 import:
 - type_prior
 model: type_prior 
-negative_sampling:
-  num_samples:
-    o: 192
-    p: -1
-    s: 61
-train:
-  auto_correct: true
-  batch_size: 128
-  loss: margin_ranking
-  loss_arg: 3.5
-  lr_scheduler: ReduceLROnPlateau
-  lr_scheduler_args:
-    factor: 0.95
-    mode: max
-    patience: 5
-    threshold: 0.0001
-  max_epochs: 400
-  optimizer: Adam
-  optimizer_args:
-    lr: 0.0003
-  type: negative_sampling
 type_prior:
+  base_model: 
+    type: prior-only
   lambda_head: 1.
   lambda_relation: 0.
   lambda_tail: 1.
   learn_lambda: False
-  base_model: 
-    type: prior-only
-valid:
-  every: 1
-  early_stopping:
-    patience: 5
-    min_threshold:
-      epochs: 50
-      metric_value: 0.05
-

@@ -280,7 +280,7 @@ class TypePrior(KgeModel):
         if self.has_base:
             loglikelihood = self._base_model.score_spo(s, p, o, direction=direction)
         
-        if self._entity_embedder and \
+        if hasattr(self, '_entity_embedder') and \
            isinstance(self._entity_embedder, TransTEmbedder):
             p_emb = self.get_p_embedder().embed(p)
             self._entity_embedder.update(
