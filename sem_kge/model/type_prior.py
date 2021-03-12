@@ -58,53 +58,16 @@ class TypePrior(KgeModel):
     
         # convert dataset
         dataset = TypedDataset.create(dataset)
-    
-        # Create structure with each entity's type set.
-        entity_types = dataset.entity_types()
-        R = dataset.num_relations()
-        N = dataset.num_entities()
-        T = dataset.num_types()
 
-        config.log("Creating typeset binary vectors")
         device = self.config.get("job.device")
-        self.device=device
+        self.device = device
 
-        # We represent each set as a binary vector.
-        # A 'True' value means that the type corresponding
-        #  to the column is in the set.
-        types_tensor = torch.zeros(
-                (N,T), 
-                dtype=torch.bool, 
-                device=device,
-                requires_grad=False
-            )
-        for idx, typeset_str in enumerate(entity_types):
-            if typeset_str is None:
-                continue
-            typelist = list(int(t) for t in typeset_str.split(','))
-            for t in typelist:
-                types_tensor[idx, t] = True
-
-
-        config.log("Creating common typeset vectors")
-        # Create structure with each relation's common type set. 
-        type_head_counts = torch.zeros((R,T), device=device, requires_grad=False)
-        type_tail_counts = torch.zeros((R,T), device=device, requires_grad=False)
-        type_totals      = torch.zeros((R,1), device=device, requires_grad=False)
-
-        triples = dataset.split('train').long()
-        for triple in triples:
-            h,r,t = triple
-            type_head_counts[r] += types_tensor[h]
-            type_tail_counts[r] += types_tensor[t]
-            type_totals[r] += 1
-
+        relation_type_freqs = dataset.index("relation_type_freqs").to(device)
         RHO = self.get_option("rho")
+        self.rel_common_head = relation_type_freqs[0] > RHO
+        self.rel_common_tail = relation_type_freqs[1] > RHO
 
-        self.rel_common_head = type_head_counts / type_totals > RHO
-        self.rel_common_tail = type_tail_counts / type_totals > RHO
-
-        self.types_tensor = types_tensor
+        self.types_tensor = dataset.index("entity_type_set").to(device)
 
         def logit(lmbda):
             return torch.log(lmbda / (1-lmbda))
@@ -163,7 +126,7 @@ class TypePrior(KgeModel):
 
         # initialize the TransTEmbedder
         if isinstance(self.get_s_embedder(), TransTEmbedder):
-            self.get_s_embedder().initialize_semantics(types_tensor)
+            self.get_s_embedder().initialize_semantics(self.types_tensor)
 
 
     def penalty(self, **kwargs):

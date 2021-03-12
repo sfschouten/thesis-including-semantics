@@ -1,0 +1,25 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+
+job.type: eval
+      
+dataset:
+  name: codex-m-typed
+eval:
+  batch_size: 256
+  metrics_per:
+    relation_type: true
+  trace_level: example
+  split: test
+entity_ranking:
+  chunk_size: 128
+import:
+- type_prior
+model: type_prior 
+type_prior:
+  base_model: 
+    type: prior-only
+  lambda_head: 1.
+  lambda_relation: 0.
+  lambda_tail: 1.
+  rho: 0.2
+  learn_lambda: False
