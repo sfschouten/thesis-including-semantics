@@ -116,10 +116,15 @@ class TypePriorEmbedder(KgeEmbedder):
         shape = list(types.shape) + [embeds.shape[3]]
         embeds = embeds.expand(shape)                   # B x 2 x T x D
         
-        log_pdf = self.prior_embedder.log_pdf(embeds, types)
-        log_pdf[types == self.PADDING_IDX] = 0
+        padding = types == self.PADDING_IDX
         
-        self.nll_type_prior = -log_pdf.sum(2).mean()
+        log_pdf = self.prior_embedder.log_pdf(embeds, types)
+        log_pdf[padding] = 0                            # B x 2 X T
+        
+        nr_types = (~padding).sum(2)                    # B x 2
+        nll = -log_pdf.sum(2)
+        nll = nll.div(nr_types)
+        self.nll_type_prior = nll.mean()
         
         #c = 1 #random.randint(0, types.shape[0])
         #false_types = torch.cat((types[c:,:,:], types[:c,:,:]), dim=0)
