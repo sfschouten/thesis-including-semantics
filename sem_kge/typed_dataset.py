@@ -23,7 +23,16 @@ class TypedDataset(Dataset):
 
         self.__class__ = TypedDataset
 
+        self.create_type_index_functions()
+
         return self
+
+    def create_type_index_functions(self):
+        from sem_kge.indexing import index_entity_types
+        from sem_kge.indexing import index_relation_types
+        self.index_functions["entity_type_set"] = index_entity_types
+        self.index_functions["relation_type_freqs"] = index_relation_types
+
 
     def num_types(self) -> int:
         "Return the number of entity types in this dataset."
