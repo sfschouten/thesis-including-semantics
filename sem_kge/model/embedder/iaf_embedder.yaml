@@ -12,7 +12,8 @@ iaf_embedder:
     
   cntx_embedder:
     type: lookup_embedder
-    +++: +++  
+    +++: +++
+    
   context_dim: 50
   
   hidden_dims:

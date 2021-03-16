@@ -20,43 +20,45 @@ import:
 model: reciprocal_relations_model
 negative_sampling:
   num_samples:
-    s: 61
+    s: 700
     p: -1
-    o: 192
+    o: 200
   shared: True
   implementation: batch
 train:
   auto_correct: true
   batch_size: 128
-  loss_arg: 1.0
+  loss_arg: 2.5
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     factor: 0.95
     mode: max
-    patience: 5
+    patience: 9
     threshold: 0.0001
   max_epochs: 400
   optimizer: Adam
   optimizer_args:
-    lr: 0.0003
+    lr: 0.003
   type: negative_sampling
 reciprocal_relations_model:
   base_model:
     type: transe
     entity_embedder:
       type: type_prior_embedder
-      dim: 96
+      dim: 128
       prior_embedder:
         type: iaf_embedder
         direction: density-estimation
-        context_dim: 32
+        context_dim: 96
         hidden_dims:
-          - 128
-          - 128
+          - 384
+          - 384
+        base_embedder.scale_embedder.initialize: constant_
+        base_embedder.scale_embedder.initialize_args.val: 0.225
     l_norm: 2.0
     relation_embedder:
-      dim: 96
-      regularize_weight: 1.8180176908040284e-07
+      dim: 128
+      regularize_weight: 1.75e-11
 entity_ranking:
   chunk_size: 1024
 valid:

@@ -47,6 +47,7 @@ class TypePriorEmbedder(KgeEmbedder):
         # convert dataset
         self.dataset = TypedDataset.create(dataset)
         entity_types = self.dataset.entity_types()
+        
         N = self.dataset.num_entities()
         T = self.dataset.num_types()
         
@@ -55,11 +56,15 @@ class TypePriorEmbedder(KgeEmbedder):
         T_ = max( types_str.count(',') + 1 for types_str in entity_types if types_str is not None )
         self.entity_types = torch.full((N, T_), self.PADDING_IDX, device=self.device)
         
+        self.avg_nr_types = 0
         for i,types_str in enumerate(entity_types):
             if types_str is None:
                 continue
-            for j,t in enumerate(types_str.split(',')):
+            types = types_str.split(',')
+            self.avg_nr_types += len(types)
+            for j,t in enumerate(types):
                 self.entity_types[i,j] = int(t)
+        self.avg_nr_types /= N
 
         self.type_padding = self.entity_types == self.PADDING_IDX
         
@@ -74,18 +79,27 @@ class TypePriorEmbedder(KgeEmbedder):
             config, dataset, self.configuration_key + ".prior_embedder", T + 1 # +1 for pad embed
         )
         
+        # wether we average or sum the logprobs of types for a given entity
+        # the latter results prioritization of entities with many types.
+        self.aggr_fun_types = self.check_option('aggr_fun_types', ['mean', 'sum'])
+        self.nll_max_threshold = self.get_option("nll_max_threshold")
+        if self.aggr_fun_types == 'sum':
+            self.nll_max_threshold *= self.avg_nr_types
+        
         self.nll_type_prior = torch.tensor(0)
         
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
         self.base_embedder.prepare_job(job, **kwargs)
+        
+        #TODO move all side-losses to penalty so we can do this
         #self.prior_embedder.prepare_job(job, **kwargs)
         
         if isinstance(job, TrainingJob):
             # use Modified Differential Multiplier Method for regularization loss
             max_prior_nll_constraint = mdmm.MaxConstraint(
                 lambda: self.nll_type_prior,
-                self.get_option("nll_max_threshold"),
+                self.nll_max_threshold,
                 scale = self.get_option("nll_max_scale"),
                 damping = self.get_option("nll_max_damping")
             )
@@ -120,10 +134,14 @@ class TypePriorEmbedder(KgeEmbedder):
         
         log_pdf = self.prior_embedder.log_pdf(embeds, types)
         log_pdf[padding] = 0                            # B x 2 X T
-        
-        nr_types = (~padding).sum(2)                    # B x 2
         nll = -log_pdf.sum(2)
-        nll = nll.div(nr_types)
+        
+        if self.aggr_fun_types == 'mean':
+            nr_types = (~padding).sum(2)                    # B x 2
+            nr_types[nr_types==0] = 1     # prevent divide_by_zero 
+                                          # (where nr_types is zero, so will nll)
+            nll = nll.div(nr_types)
+            
         self.nll_type_prior = nll.mean()
         
         #c = 1 #random.randint(0, types.shape[0])

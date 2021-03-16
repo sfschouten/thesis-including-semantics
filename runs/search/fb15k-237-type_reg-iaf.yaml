@@ -1,10 +1,7 @@
 modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 
-job:
-  type: search
-
+job.type: search
 search.type: ax
-
 dataset.name: fb15k-237-typed
 
 train:
@@ -13,7 +10,10 @@ train:
 
 valid:
   every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+  filter_with_test: True
   early_stopping:
+    patience: 10
     min_threshold:
       epochs: 15
       metric_value: 0.1
@@ -38,13 +38,14 @@ reciprocal_relations_model:
       prior_embedder:
         type: iaf_embedder
         direction: density-estimation
+        base_embedder.scale_embedder.initialize: constant_
 
 
 search.on_error: continue
 
 ax_search:
   num_trials: 30
-  num_sobol_trials: 30
+  num_sobol_trials: 15
   
   parameter_constraints:
     - lookup_embedder.dim <= type_prior_embedder.dim
@@ -180,13 +181,25 @@ ax_search:
       type: range
       bounds: [0.0, 10.0]
   
-    # model-specific entries
-    - name: type_prior_embedder.prior_embedder.scale_embedder.initialize_args.val
+    # transe
+    - name: transe.l_norm
+      type: choice
+      values: [1.0, 2.0]
+      is_ordered: True
+    - name: transe.entity_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+    - name: transe.relation_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+  
+    # type-prior
+    - name: type_prior_embedder.prior_embedder.base_embedder.scale_embedder.initialize_args.val
       type: range
       bounds: [0., 1.]
     - name: type_prior_embedder.nll_max_threshold
       type: range
-      bounds: [0., 150.]
+      bounds: [-10., 10.]
     
     - name: type_prior_embedder.prior_embedder.context_dim
       type: range
