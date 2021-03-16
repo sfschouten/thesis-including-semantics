@@ -38,7 +38,6 @@ reciprocal_relations_model:
       prior_embedder:
         type: iaf_embedder
         direction: density-estimation
-        base_embedder.scale_embedder.initialize: constant_
 
 
 search.on_error: continue
@@ -194,9 +193,9 @@ ax_search:
       values: [-1.0, 2.0]
   
     # type-prior
-    - name: type_prior_embedder.prior_embedder.base_embedder.scale_embedder.initialize_args.val
-      type: range
-      bounds: [0., 1.]
+    #- name: type_prior_embedder.prior_embedder.base_embedder.scale_embedder.initialize_args.val
+    #  type: range
+    #  bounds: [0., 1.]
     - name: type_prior_embedder.nll_max_threshold
       type: range
       bounds: [-10., 10.]
