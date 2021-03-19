@@ -92,8 +92,8 @@ class TypePriorEmbedder(KgeEmbedder):
         super().prepare_job(job, **kwargs)
         self.base_embedder.prepare_job(job, **kwargs)
         
-        #TODO move all side-losses to penalty so we can do this
-        #self.prior_embedder.prepare_job(job, **kwargs)
+        #TODO move all side-losses to penalty so we can do this reliably
+        self.prior_embedder.prepare_job(job, **kwargs)
         
         if isinstance(job, TrainingJob):
             # use Modified Differential Multiplier Method for regularization loss
@@ -154,10 +154,13 @@ class TypePriorEmbedder(KgeEmbedder):
 
     def penalty(self, **kwargs):
         terms = super().penalty(**kwargs)
-        terms += self.base_embedder.penalty(**kwargs)
-        terms += self.prior_embedder.penalty(**kwargs)
         
         indexes = kwargs['indexes']                     # B x 2
+        embeds = self.base_embedder.embed(indexes)
+        
+        terms += self.base_embedder.penalty(**kwargs)
+        terms += self.prior_embedder.penalty(**kwargs, points=embeds)
+        
         self._calc_prior_loss(indexes)
         
         terms += [ ( 

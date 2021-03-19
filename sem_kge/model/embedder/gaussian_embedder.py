@@ -2,24 +2,22 @@ import torch
 import torch.nn.functional as F
 
 from torch import Tensor
-
 from torch.distributions.kl import kl_divergence
+from torch.distributions.utils import _standard_normal
+
+from functools import partial
+from typing import List
 
 from kge.model import KgeEmbedder
 from kge.job.train import TrainingJob
 
-from functools import partial
-from typing import List
-import importlib
+from sem_kge import misc
 
 import mdmm
 
 
-class LocScaleEmbedder(KgeEmbedder):
-    """ 
-    Class for stochastic embeddings with distributions that take a `loc` and
-    a `scale` argument.
-    """
+class GaussianEmbedder(KgeEmbedder):
+    DIST = torch.distributions.normal.Normal
 
     def __init__(
         self, config, dataset, configuration_key, 
@@ -28,12 +26,11 @@ class LocScaleEmbedder(KgeEmbedder):
         super().__init__(
             config, dataset, configuration_key, init_for_load_only=init_for_load_only
         )
-
-        base_dim = self.get_option("dim")
-        dist_class = self.get_option("dist_class")
         
-        self.dist_class = eval(dist_class)
+        base_dim = self.get_option("dim")
+        self.device = self.config.get("job.device")
         self.vocab_size = vocab_size
+        self.kl_loss = self.get_option("kl_loss")
 
         # initialize loc_embedder
         config.set(self.configuration_key + ".loc_embedder.dim", base_dim)
@@ -57,42 +54,39 @@ class LocScaleEmbedder(KgeEmbedder):
             config, dataset, self.configuration_key + ".scale_embedder", vocab_size 
         )
 
-        self.device = self.config.get("job.device")
-    
-        self.prior = self.dist_class(
+        self.prior = self.DIST(
             torch.tensor([0.0], device=self.device, requires_grad=False).expand(base_dim).unsqueeze(0),
             torch.tensor([1.0], device=self.device, requires_grad=False).expand(base_dim).unsqueeze(0)
         )
-    
-        self.last_regularization_loss = torch.tensor(0)
+        
+        self.last_kl_divs = []
+        
         
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
         self.loc_embedder.prepare_job(job, **kwargs)
         self.scale_embedder.prepare_job(job, **kwargs)
         
-        if isinstance(job, TrainingJob):
+        if self.kl_loss and isinstance(job, TrainingJob):
             # use Modified Differential Multiplier Method for regularization loss
             max_kl_constraint = mdmm.MaxConstraint(
-                lambda: self.last_regularization_loss,
+                lambda: self.last_kl_divs[-1],
                 self.get_option("kl_max_threshold"),
                 scale = self.get_option("kl_max_scale"), 
                 damping = self.get_option("kl_max_damping")
             )
-            mdmm_module = mdmm.MDMM([max_kl_constraint])
-            misc.add_constraints_to_job(job, self.mdmm_module)
-            
-            # update loss
-            original_loss = job.loss
-            def modified_loss(*args, **kwargs):
-                return mdmm_module(original_loss(*args, **kwargs)).value
-            job.loss = modified_loss        
+            dummy_val = torch.zeros((1), device=self.device)
+            kl_max_module = mdmm.MDMM([max_kl_constraint])
+            misc.add_constraints_to_job(job, kl_max_module)
+            self.kl_max_module = partial(kl_max_module, dummy_val)
 
         # trace the regularization loss
         def trace_regularization_loss(job):
+            last_kl_avg = sum( kl.item() / len(self.last_kl_divs) for kl in self.last_kl_divs )
+            self.last_kl_divs = []
             key = f"{self.configuration_key}.kl"
-            job.current_trace["batch"][key] = self.last_regularization_loss.item()
-            if isinstance(job, TrainingJob):
+            job.current_trace["batch"][key] = last_kl_avg
+            if self.kl_loss and isinstance(job, TrainingJob):
                 job.current_trace["batch"][f"{key}_lambda"] = max_kl_constraint.lmbda.item()
 
         from kge.job import TrainingOrEvaluationJob
@@ -100,16 +94,35 @@ class LocScaleEmbedder(KgeEmbedder):
             job.pre_batch_hooks.append(trace_regularization_loss)
 
 
-    def dist(self, indexes, calc_kl=True):
+    def dist(self, indexes=None, use_cache=False, cache_action='push'):
         """
-        Instantiates `self.dist_class` using the parameters obtained 
-        from embedding `indexes`.
+        Instantiates `self.DIST` using the parameters obtained 
+        from embedding `indexes` or all indexes if `indexes' is None.
         """
-        mu = self.loc_embedder.embed(indexes)
-        sigma = F.softplus(self.scale_embedder.embed(indexes))
-        dist = self.dist_class(mu, sigma)
-        if calc_kl:
-            self.last_regularization_loss = kl_divergence(dist, self.prior).mean()
+        def mod_rsample(dist, sample_shape=torch.Size()):
+            """Modified rsample that saves samples so we can calculate penalty later."""
+            if not use_cache or cache_action=='push':
+                shape = dist._extended_shape(sample_shape)
+                eps = _standard_normal(shape, dtype=dist.loc.dtype, device=dist.loc.device)
+                
+                if use_cache and cache_action=='push':
+                    print("WHYY?")
+                    self.sample_stack.append(eps.detach())
+            
+            if use_cache and cache_action=='pop':
+                eps = self.sample_stack.pop(0)
+            
+            return dist.loc + eps * dist.scale
+        
+        if indexes==None:
+            mu = self.loc_embedder.embed_all() 
+            sigma = F.softplus(self.scale_embedder.embed_all())
+        else:
+            mu = self.loc_embedder.embed(indexes)
+            sigma = F.softplus(self.scale_embedder.embed(indexes))
+            
+        dist = self.DIST(mu, sigma)
+        dist.rsample = mod_rsample
         return dist
 
     def log_pdf(self, points, indexes):
@@ -122,26 +135,33 @@ class LocScaleEmbedder(KgeEmbedder):
         dist = self.dist(indexes)
         return dist.log_prob(points).mean(dim=-1)
 
-    def _sample(self, dist):
+    def sample(self, indexes=None, use_cache=False, cache_action='push'):
+        dist = self.dist(indexes, use_cache, cache_action)
         sample_shape = torch.Size([1 if self.training else 10])
+        #TODO set '1' and '10' values in config
+        
         sample = dist.rsample(sample_shape=sample_shape)
         return sample
-
-    def _embed(self, indexes):
-        dist = self.dist(indexes)
-        return self._sample(dist)
-
-    def embed(self, indexes):
-        return self._embed(indexes).mean(dim=0)
-
-    def _embed_all(self):
-        mu = self.loc_embedder.embed_all() 
-        sigma = F.softplus(self.scale_embedder.embed_all())
-        dist = self.dist_class(mu, sigma)
-        return self._sample(dist)
-
-    def embed_all(self):
-        return self._embed_all().mean(dim=0)
-
         
+    def embed(self, indexes):
+        return self.sample(indexes).mean(dim=0)
+    def embed_all(self):
+        return self.sample().mean(dim=0)
+
+    def penalty(self, **kwargs):
+        terms = super().penalty(**kwargs)
+        terms += self.loc_embedder.penalty(**kwargs)
+        terms += self.scale_embedder.penalty(**kwargs)
+
+        indexes = kwargs['indexes']
+        kl_div = kl_divergence(self.dist(indexes), self.prior).mean()
+        self.last_kl_divs.append(kl_div)
+
+        if self.kl_loss:
+            terms += [ ( 
+                f"{self.configuration_key}.kl", 
+                self.kl_max_module().value
+            ) ]
+        
+        return terms
 
