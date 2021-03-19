@@ -1,5 +1,5 @@
 
-import: [loc_scale_embedder]
+import: [gaussian_embedder]
 
 iaf_embedder:
   class_name: IAFEmbedder
@@ -7,7 +7,7 @@ iaf_embedder:
   direction: sampling
   
   base_embedder:
-    type: loc_scale_embedder
+    type: gaussian_embedder
     +++: +++
     
   cntx_embedder:
@@ -21,6 +21,7 @@ iaf_embedder:
     - 150
   
   # log determinant of jacobian
+  ldj_loss: True
   ldj_min_threshold: -1.     # This determinant measures loss of probability volume,
                              # setting a min of 0, would mean no volume may be lost.
   ldj_min_scale: 1.

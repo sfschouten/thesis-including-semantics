@@ -1,10 +1,8 @@
 
 import: [lookup_embedder]
 
-loc_scale_embedder:
-  class_name: LocScaleEmbedder
-  dist_class: torch.distributions.normal.Normal
-  
+gaussian_embedder:
+  class_name: GaussianEmbedder
   dim: 100
   
   loc_embedder:
@@ -19,6 +17,7 @@ loc_scale_embedder:
     +++: +++
   
   # kl-divergence
+  kl_loss: True
   kl_max_threshold: 0.5
   kl_max_scale: 1.
   kl_max_damping: 1.
