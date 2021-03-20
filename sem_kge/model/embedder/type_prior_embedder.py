@@ -137,7 +137,7 @@ class TypePriorEmbedder(KgeEmbedder):
         nll = -log_pdf.sum(2)
         
         if self.aggr_fun_types == 'mean':
-            nr_types = (~padding).sum(2)                    # B x 2
+            nr_types = (~padding).sum(2)                # B x 2
             nr_types[nr_types==0] = 1     # prevent divide_by_zero 
                                           # (where nr_types is zero, so will nll)
             nll = nll.div(nr_types)
