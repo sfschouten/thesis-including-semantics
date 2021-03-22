@@ -13,7 +13,7 @@ eval:
   trace_level: example
 import:
 - transt
-- type_prior
+- type_linkprior
 - reciprocal_relations_model
 - discrete_stochastic_embedder
 discrete_stochastic_embedder:
@@ -45,7 +45,7 @@ lookup_embedder:
     xavier_uniform_:
       gain: 1.0
   regularize: ''
-model: type_prior 
+model: type_linkprior 
 negative_sampling:
   num_samples:
     o: 192
@@ -79,7 +79,7 @@ transt:
 reciprocal_relations_model:
   base_model:
     type: transt
-type_prior:
+type_linkprior:
   lambda_head: 1.
   lambda_relation: 0.
   lambda_tail: 1.

@@ -3,7 +3,7 @@ modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 job.type: eval
       
 dataset:
-  name: codex-s-typed
+  name: codex-m-typed
 eval:
   batch_size: 256
   metrics_per:
@@ -13,8 +13,8 @@ eval:
 entity_ranking:
   chunk_size: 128
 import:
-- type_prior
-model: type_prior 
+- type_linkprior
+model: type_linkprior 
 type_prior:
   base_model: 
     type: prior-only
