@@ -29,7 +29,7 @@ lookup_embedder:
     xavier_uniform_:
       gain: 1.0
   regularize: 'lp'
-model: type_prior 
+model: type_linkprior 
 negative_sampling:
   num_samples:
     o: 125

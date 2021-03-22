@@ -11,7 +11,7 @@ from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 from kge.model.transe import TransEScorer
 
-class TypePrior(KgeModel):
+class TypeLinkPrior(KgeModel):
     """ """
 
     PRIOR_ONLY_VALUE = "prior-only"
@@ -24,7 +24,7 @@ class TypePrior(KgeModel):
         init_for_load_only=False,
     ):
         self._init_configuration(config, configuration_key)
-
+        configuration_key = self.configuration_key
         scorer = None
 
         self.has_base = self.get_option("base_model.type") != self.PRIOR_ONLY_VALUE
@@ -42,13 +42,11 @@ class TypePrior(KgeModel):
         super().__init__(
             config=config,
             dataset=dataset,
+            configuration_key=configuration_key,
             scorer=scorer,
             create_embedders=False,
             init_for_load_only=init_for_load_only,
         )
-
-        #TODO find cause for why this is necessary...
-        self.configuration_key = "type_prior"
 
         if self.has_base:
             self._base_model = base_model

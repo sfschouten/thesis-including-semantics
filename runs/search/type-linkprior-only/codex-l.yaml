@@ -4,7 +4,7 @@ job.type: search
 search.type: ax
 dataset.name: codex-l-typed
 
-import: [type_prior]
+import: [type_linkprior]
 
 eval:
   batch_size: 256
@@ -16,9 +16,9 @@ eval:
 entity_ranking:
   chunk_size: 128
 
-model: type_prior 
+model: type_linkprior 
 
-type_prior.base_model.type: prior-only
+type_linkprior.base_model.type: prior-only
 
 ax_search:
   num_trials: 35
@@ -31,20 +31,20 @@ ax_search:
       bounds: [0.0001, 1.]
       log_scale: True
       
-    - name: type_prior.lambda_head
+    - name: type_linkprior.lambda_head
       type: range
       bounds: [0., 1.]
-    - name: type_prior.lambda_relation
+    - name: type_linkprior.lambda_relation
       type: range
       bounds: [0., 1.]
-    - name: type_prior.lambda_tail
+    - name: type_linkprior.lambda_tail
       type: range
       bounds: [0., 1.]
       
-    - name: type_prior.learn_lambda
+    - name: type_linkprior.learn_lambda
       type: choice
       values: [True, False]
       
-    - name: type_prior.rho
+    - name: type_linkprior.rho
       type: range
       bounds: [0., 1.]
