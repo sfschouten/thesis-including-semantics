@@ -45,6 +45,6 @@ ax_search:
       type: choice
       values: [True, False]
       
-    - name: type_prior.rho
+    - name: type_linkprior.rho
       type: range
       bounds: [0., 1.]
