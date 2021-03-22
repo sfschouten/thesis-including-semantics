@@ -1,6 +1,6 @@
 import: [transe]
 
-type_prior:
+type_linkprior:
   class_name: TypeLinkPrior
   base_model: 
     type: transe
