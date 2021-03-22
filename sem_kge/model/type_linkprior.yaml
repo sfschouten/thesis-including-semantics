@@ -1,7 +1,7 @@
 import: [transe]
 
 type_prior:
-  class_name: TypePrior
+  class_name: TypeLinkPrior
   base_model: 
     type: transe
     +++: +++

@@ -3,17 +3,18 @@ modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 job.type: eval
       
 dataset:
-  name: wnrr-typed
+  name: fb15k-237-typed
 eval:
   batch_size: 256
   metrics_per:
     relation_type: true
   trace_level: example
+  split: test
 entity_ranking:
-  chunk_size: 1024
+  chunk_size: 128
 import:
-- type_prior
-model: type_prior 
+- type_linkprior
+model: type_linkprior 
 type_prior:
   base_model: 
     type: prior-only

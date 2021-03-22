@@ -13,7 +13,7 @@ eval:
   trace_level: example
 import:
 - transt
-- type_prior
+- type_linkprior
 - reciprocal_relations_model
 - transt_embedder
 transt_embedder:
@@ -45,7 +45,7 @@ lookup_embedder:
     xavier_uniform_:
       gain: 1.0
   regularize: 'lp'
-model: type_prior 
+model: type_linkprior 
 negative_sampling:
   num_samples:
     o: 125
@@ -80,7 +80,7 @@ transt:
 reciprocal_relations_model:
   base_model:
     type: transt
-type_prior:
+type_linkprior:
   rho: 0.7314586686901748
   lambda_head: 0.352859390899539
   lambda_relation: -0.46099785156548023

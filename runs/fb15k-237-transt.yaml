@@ -12,7 +12,7 @@ eval:
     relation_type: true
   trace_level: example
 import:
-- type_prior
+- type_linkprior
 - transe
 - reciprocal_relations_model
 lookup_embedder:
@@ -63,7 +63,7 @@ transe:
 reciprocal_relations_model:
   base_model:
     type: transe
-type_prior:
+type_linkprior:
   rho: 0.7314586686901748
   lambda_head: 0.352859390899539
   lambda_relation: -0.46099785156548023
