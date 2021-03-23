@@ -1,0 +1,63 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+job:
+  external_tracking:
+    weights-and-biases:
+      project: sem_kge
+      group: transe-gaussian
+dataset:
+  name: fb15k-237
+eval:
+  batch_size: 256
+  metrics_per:
+    relation_type: true
+  trace_level: example
+import:
+- transe
+- reciprocal_relations_model
+- iaf_embedder
+model: reciprocal_relations_model
+negative_sampling:
+  num_samples:
+    o: 192
+    p: -1
+    s: 61
+  #implementation: batch
+train:
+  auto_correct: true
+  batch_size: 64
+  loss_arg: 1.0
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    factor: 0.95
+    mode: max
+    patience: 5
+    threshold: 0.0001
+  max_epochs: 400
+  optimizer: Adam
+  optimizer_args:
+    lr: 0.0003
+  type: negative_sampling
+lookup_embedder:
+  dim: 96
+iaf_embedder:
+  dim: 96
+  context_dim: 32
+  hidden_dims:
+    - 128
+    - 128
+reciprocal_relations_model:
+  base_model:
+    type: transe
+transe:
+  entity_embedder:
+    type: iaf_embedder
+  relation_embedder:
+    type: iaf_embedder
+valid:
+  every: 1
+  early_stopping:
+    min_threshold:
+      epochs: 50
+      metric_value: 0.05
+    patience: 10
+

@@ -1,0 +1,27 @@
+
+import: [lookup_embedder]
+
+loc_scale_embedder:
+  class_name: LocScaleEmbedder
+  dist_class: torch.distributions.normal.Normal
+  
+  dim: 100
+  
+  loc_embedder:
+    type: lookup_embedder
+    +++: +++
+    
+  scale_embedder:
+    type: lookup_embedder
+    initialize: constant_
+    initialize_args:
+      val: 0.1
+    +++: +++
+  
+  # kl-divergence
+  kl_max_threshold: 0.5
+  kl_max_scale: 1.
+  kl_max_damping: 1.
+  
+  regularize_args:
+    weighted: False

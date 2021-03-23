@@ -1,0 +1,25 @@
+import: [lookup_embedder, loc_scale_embedder]
+
+type_prior_embedder:
+  class_name: TypePriorEmbedder
+  dim: 100
+  
+  base_embedder:
+    type: lookup_embedder
+    +++: +++
+    
+  prior_embedder:
+    type: loc_scale_embedder
+    scale_embedder.initialize_args.val: 0.1     #
+    kl_max_threshold: 9999.9
+    +++: +++
+  
+  nll_max_threshold: 0.
+  nll_max_scale: 1.
+  nll_max_damping: 1.
+  
+  aggr_fun_types: mean                          # Wether we average or sum the logprobs of types for a given entity
+                                                # the latter results prioritization of entities with many types.
+  
+  regularize_args:
+    weighted: True
