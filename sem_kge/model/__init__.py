@@ -6,5 +6,5 @@ from sem_kge.model.embedder.loc_scale_embedder import LocScaleEmbedder
 from sem_kge.model.embedder.iaf_embedder import IAFEmbedder
 from sem_kge.model.embedder.type_prior_embedder import TypePriorEmbedder
 
-from sem_kge.model.type_prior import TypePrior
+from sem_kge.model.type_linkprior import TypeLinkPrior
 from sem_kge.model.transt import TransT

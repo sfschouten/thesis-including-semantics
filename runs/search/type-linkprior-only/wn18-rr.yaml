@@ -1,0 +1,55 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+
+job.type: search
+search.type: ax
+dataset.name: wnrr-typed
+
+import: [type_linkprior]
+
+train:
+  type: negative_sampling
+  max_epochs: 125
+  auto_correct: true
+  
+eval:
+  batch_size: 256
+  metrics_per:
+    relation_type: true
+  trace_level: example
+  split: test
+  
+entity_ranking:
+  chunk_size: 128
+
+model: type_linkprior 
+
+type_linkprior.base_model.type: prior-only
+
+ax_search:
+  num_trials: 20
+  num_sobol_trials: 15
+  
+  parameters:
+  
+    - name: train.optimizer_args.lr
+      type: range
+      bounds: [0.0001, 1.]
+      log_scale: True
+      
+    - name: type_linkprior.lambda_head
+      type: range
+      bounds: [0., 1.]
+    - name: type_linkprior.lambda_relation
+      type: range
+      bounds: [0., 1.]
+    - name: type_linkprior.lambda_tail
+      type: range
+      bounds: [0., 1.]
+      
+    - name: type_linkprior.learn_lambda
+      type: choice
+      values: [True, False]
+      
+    - name: type_linkprior.rho
+      type: range
+      bounds: [0., 1.]

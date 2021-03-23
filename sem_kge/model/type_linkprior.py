@@ -11,7 +11,7 @@ from kge import Config, Dataset
 from kge.model.kge_model import RelationalScorer, KgeModel
 from kge.model.transe import TransEScorer
 
-class TypePrior(KgeModel):
+class TypeLinkPrior(KgeModel):
     """ """
 
     PRIOR_ONLY_VALUE = "prior-only"
@@ -24,7 +24,7 @@ class TypePrior(KgeModel):
         init_for_load_only=False,
     ):
         self._init_configuration(config, configuration_key)
-
+        configuration_key = self.configuration_key
         scorer = None
 
         self.has_base = self.get_option("base_model.type") != self.PRIOR_ONLY_VALUE
@@ -42,13 +42,11 @@ class TypePrior(KgeModel):
         super().__init__(
             config=config,
             dataset=dataset,
+            configuration_key=configuration_key,
             scorer=scorer,
             create_embedders=False,
             init_for_load_only=init_for_load_only,
         )
-
-        #TODO find cause for why this is necessary...
-        self.configuration_key = "type_prior"
 
         if self.has_base:
             self._base_model = base_model
@@ -58,53 +56,16 @@ class TypePrior(KgeModel):
     
         # convert dataset
         dataset = TypedDataset.create(dataset)
-    
-        # Create structure with each entity's type set.
-        entity_types = dataset.entity_types()
-        R = dataset.num_relations()
-        N = dataset.num_entities()
-        T = dataset.num_types()
 
-        config.log("Creating typeset binary vectors")
         device = self.config.get("job.device")
-        self.device=device
+        self.device = device
 
-        # We represent each set as a binary vector.
-        # A 'True' value means that the type corresponding
-        #  to the column is in the set.
-        types_tensor = torch.zeros(
-                (N,T), 
-                dtype=torch.bool, 
-                device=device,
-                requires_grad=False
-            )
-        for idx, typeset_str in enumerate(entity_types):
-            if typeset_str is None:
-                continue
-            typelist = list(int(t) for t in typeset_str.split(','))
-            for t in typelist:
-                types_tensor[idx, t] = True
-
-
-        config.log("Creating common typeset vectors")
-        # Create structure with each relation's common type set. 
-        type_head_counts = torch.zeros((R,T), device=device, requires_grad=False)
-        type_tail_counts = torch.zeros((R,T), device=device, requires_grad=False)
-        type_totals      = torch.zeros((R,1), device=device, requires_grad=False)
-
-        triples = dataset.split('train').long()
-        for triple in triples:
-            h,r,t = triple
-            type_head_counts[r] += types_tensor[h]
-            type_tail_counts[r] += types_tensor[t]
-            type_totals[r] += 1
-
+        relation_type_freqs = dataset.index("relation_type_freqs").to(device)
         RHO = self.get_option("rho")
+        self.rel_common_head = relation_type_freqs[0] > RHO
+        self.rel_common_tail = relation_type_freqs[1] > RHO
 
-        self.rel_common_head = type_head_counts / type_totals > RHO
-        self.rel_common_tail = type_tail_counts / type_totals > RHO
-
-        self.types_tensor = types_tensor
+        self.types_tensor = dataset.index("entity_type_set").to(device)
 
         def logit(lmbda):
             return torch.log(lmbda / (1-lmbda))
@@ -124,47 +85,62 @@ class TypePrior(KgeModel):
         lambda_tail = torch.full((1,), lambda_tail, device=device)
 
         learn_lambda = self.get_option("learn_lambda")
+        if learn_lambda:        
+            def pos_grad(name, var):
+                if var == 0 or var == 1:
+                    var += (-1 if var == 1 else 1) * torch.finfo().eps
+                    config.log(f"To allow positive gradients {name} has been set to {var.item()}")
 
-        if learn_lambda:
-            if lambda_head == 0:
-                lambda_head += torch.finfo().eps
-                config.log(f"To allow positive gradients lambda_head has been set to {lambda_head.item()}")
-            if lambda_relation == 0:
-                lambda_relation += torch.finfo().eps
-                config.log(f"To allow positive gradients lambda_relation has been set to {lambda_relation.item()}")
-            if lambda_tail == 0:
-                lambda_tail += torch.finfo().eps
-                config.log(f"To allow positive gradients lambda_tail has been set to {lambda_tail.item()}")
-
-            if lambda_head == 1:
-                lambda_head -= torch.finfo().eps
-                config.log(f"To allow positive gradients lambda_head has been set to {lambda_head.item()}")
-            if lambda_relation == 1:
-                lambda_relation -= torch.finfo().eps
-                config.log(f"To allow positive gradients lambda_relation has been set to {lambda_relation.item()}")
-            if lambda_tail == 1:
-                lambda_tail -= torch.finfo().eps
-                config.log(f"To allow positive gradients lambda_tail has been set to {lambda_tail.item()}")
+            pos_grad("lambda_head", lambda_head)
+            pos_grad("lambda_relation", lambda_relation)
+            pos_grad("lambda_tail", lambda_tail)
 
         self._loglambda_head = Parameter(logit(lambda_head), requires_grad=learn_lambda)
         self._loglambda_relation = Parameter(logit(lambda_relation), requires_grad=learn_lambda)
         self._loglambda_tail = Parameter(logit(lambda_tail), requires_grad=learn_lambda)
 
-        if not self.has_base:
+        if self.has_base:
             # The rest of the initialization is only relevant when there's a base model.
-            return
+            
+            if not self.get_s_embedder() is self.get_o_embedder():
+                raise NotImplementedError("TransT currently does not support \
+                    the use of different embedders for subjects and objects.")
 
-        if not self.get_s_embedder() is self.get_o_embedder():
-            raise NotImplementedError("TransT currently does not support \
-                the use of different embedders for subjects and objects.")
+            # TODO Rather than checking for a specific class, create interface
+            # for all embedders that might need type information
 
-        # TODO Rather than checking for a specific class, create interface
-        # for all embedders that might need type information
+            # initialize the TransTEmbedder
+            if isinstance(self.get_s_embedder(), TransTEmbedder):
+                self.get_s_embedder().initialize_semantics(self.types_tensor)
 
-        # initialize the TransTEmbedder
-        if isinstance(self.get_s_embedder(), TransTEmbedder):
-            self.get_s_embedder().initialize_semantics(types_tensor)
+    def prepare_job(self, job, **kwargs):
+        if self.has_base:
+            self._base_model.prepare_job(job, **kwargs)
+        
+        if self.get_option("learn_lambda"):
+            # trace the lambda parameters
+            def trace_lambda(trace_job):
+                trace_job.current_trace["batch"]["loglambda_head"] = self._loglambda_head.item()
+                trace_job.current_trace["batch"]["loglambda_relation"] = self._loglambda_relation.item()
+                trace_job.current_trace["batch"]["loglambda_tail"] = self._loglambda_tail.item()
 
+            from kge.job import TrainingOrEvaluationJob
+            if isinstance(job, TrainingOrEvaluationJob):
+                job.pre_batch_hooks.append(trace_lambda)
+        
+        # If we are not learning anything.
+        if not self.has_base and not self.get_option("learn_lambda"):
+            from kge.job import TrainingJob
+            if isinstance(job, TrainingJob):
+                # Manually validate.
+                trace_entry = job.valid_job.run()
+                job.valid_trace.append(trace_entry)
+                
+                # Make sure to run post_valid_hooks in case of search.
+                for f in job.post_valid_hooks:
+                    f(job)
+
+            job.config.set("train.max_epochs", 0)
 
     def penalty(self, **kwargs):
         if self.has_base:
@@ -250,21 +226,6 @@ class TypePrior(KgeModel):
 
         return logprior
 
-    def prepare_job(self, job, **kwargs):
-        if self.has_base:
-            self._base_model.prepare_job(job, **kwargs)
-        
-        if self.get_option("learn_lambda"):
-            # trace the lambda parameters
-            def trace_lambda(trace_job):
-                trace_job.current_trace["batch"]["loglambda_head"] = self._loglambda_head.item()
-                trace_job.current_trace["batch"]["loglambda_relation"] = self._loglambda_relation.item()
-                trace_job.current_trace["batch"]["loglambda_tail"] = self._loglambda_tail.item()
-
-            from kge.job import TrainingOrEvaluationJob
-            if isinstance(job, TrainingOrEvaluationJob):
-                job.pre_batch_hooks.append(trace_lambda)
-
     def score_spo(self, s: Tensor, p: Tensor, o: Tensor, direction=None) -> Tensor:
         """
         """
@@ -280,7 +241,7 @@ class TypePrior(KgeModel):
         if self.has_base:
             loglikelihood = self._base_model.score_spo(s, p, o, direction=direction)
         
-        if self._entity_embedder and \
+        if hasattr(self, '_entity_embedder') and \
            isinstance(self._entity_embedder, TransTEmbedder):
             p_emb = self.get_p_embedder().embed(p)
             self._entity_embedder.update(
