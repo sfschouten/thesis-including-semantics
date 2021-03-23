@@ -11,18 +11,16 @@ train:
   max_epochs: 125
   auto_correct: true
   
+valid:
+  split: valid
+  early_stopping:
+    patience: 5
 eval:
-  batch_size: 256
+  batch_size: 512
   metrics_per:
     relation_type: true
-  trace_level: example
-  split: test
-  
-entity_ranking:
-  chunk_size: 128
 
 model: type_linkprior 
-
 type_linkprior.base_model.type: prior-only
 
 ax_search:
@@ -53,3 +51,4 @@ ax_search:
     - name: type_linkprior.rho
       type: range
       bounds: [0., 1.]
+      
