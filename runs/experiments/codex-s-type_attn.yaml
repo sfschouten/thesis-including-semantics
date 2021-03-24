@@ -1,0 +1,26 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder, sem_kge.job]
+
+import:
+- type_attentive_experiment
+- transe
+- type_attentive_embedder
+- reciprocal_relations_model
+
+job.type: eval
+eval.type: type_attentive_experiment
+
+dataset:
+  name: codex-s-typed
+
+model: reciprocal_relations_model
+lookup_embedder.dim: 128
+reciprocal_relations_model:
+  base_model:
+    type: transe
+transe:
+  entity_embedder:
+    type: type_attentive_embedder
+  l_norm: 2.0
+  relation_embedder:
+    regularize_weight: 1.8180176908040284e-07
+
