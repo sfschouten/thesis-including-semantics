@@ -1,0 +1,3 @@
+type_cluster_tsne_experiment:
+  class_name: TypeClusterTSNEExperimentJob
+  chunk_size: -1

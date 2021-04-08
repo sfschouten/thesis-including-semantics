@@ -9,6 +9,9 @@ import:
 job.type: eval
 eval.type: type_attentive_experiment
 
+type_attentive_experiment:
+  trace_entity_level: False #True
+
 dataset:
   name: codex-s-typed
 

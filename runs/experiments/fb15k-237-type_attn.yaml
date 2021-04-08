@@ -1,0 +1,83 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder, sem_kge.job]
+
+import:
+- type_attentive_experiment
+- transe
+- type_attentive_embedder
+- reciprocal_relations_model
+
+job.type: eval
+eval:
+  type: type_attentive_experiment
+type_attentive_experiment.chunk_size: 1024
+
+dataset:
+  name: fb15k-237-typed
+
+model: reciprocal_relations_model
+reciprocal_relations_model:
+  base_model:
+    +++: +++
+    type: transe
+  class_name: ReciprocalRelationsModel
+transe:
+  class_name: TransE
+  entity_embedder:
+    +++: +++
+    attn_nhead: 2
+    base_embedder:
+      dropout: 0.38400186877697706
+      regularize_weight: 6.372559539384783e-19
+    type: type_attentive_embedder
+    type_embedder:
+      dropout: 0.0844023060053587
+      regularize_weight: 4.7364903527522544e-08
+  l_norm: 1.0
+  relation_embedder:
+    +++: +++
+    dropout: -0.051683209836483
+    regularize_weight: 2.5977747143513428e-11
+    type: lookup_embedder
+lookup_embedder:
+  class_name: LookupEmbedder
+  dim: 256
+  dropout: 0.0
+  initialize: xavier_uniform_
+  initialize_args:
+    +++: +++
+    normal_:
+      mean: 0.0
+      std: 0.0034712565407065813
+    uniform_:
+      a: -0.5176279642452393
+    xavier_normal_:
+      gain: 1.0
+    xavier_uniform_:
+      gain: 1.0
+  normalize:
+    p: -1.0
+  pretrain:
+    ensure_all: false
+    model_filename: ''
+  regularize: lp
+  regularize_args:
+    +++: +++
+    p: 3
+    weighted: true
+  regularize_weight: 0.0
+  round_dim_to: []
+  sparse: false
+type_attentive_embedder:
+  attn_nhead: 1
+  base_embedder:
+    +++: +++
+    type: lookup_embedder
+  class_name: TypeAttentiveEmbedder
+  dim: -1
+  dropout: 0.0
+  regularize_args:
+    weighted: false
+  type_embedder:
+    +++: +++
+    type: lookup_embedder
+train.auto_correct: True

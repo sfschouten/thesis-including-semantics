@@ -1,0 +1,37 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder, sem_kge.job]
+
+import:
+- type_cluster_tsne_experiment
+- transe
+
+job.type: eval
+eval:
+  type: type_cluster_tsne_experiment
+type_cluster_tsne_experiment.chunk_size: 1024
+
+dataset:
+  name: fb15k-237-typed
+
+model: transe 
+train.auto_correct: True
+
+lookup_embedder:
+  dim: 128
+  initialize: uniform_
+  initialize_args:
+    normal_:
+      mean: 0.0
+      std: 3.5688807324453804e-05
+    uniform_:
+      a: -1.0000000000065512e-05
+    xavier_normal_:
+      gain: 1.0
+    xavier_uniform_:
+      gain: 1.0
+  regularize: ''
+transe:
+  entity_embedder:
+    regularize_weight: 7.469488745511875e-12
+  l_norm: 2.0
+  relation_embedder:
+    regularize_weight: 1.8180176908040284e-07
