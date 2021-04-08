@@ -1,8 +1,3 @@
-job:
-  external_tracking:
-    weights-and-biases:
-      project: sem_kge
-      group: transe
 dataset:
   name: wnrr
 eval:
@@ -12,6 +7,7 @@ eval:
   trace_level: example
 import:
 - transe
+- reciprocal_relations_model
 lookup_embedder:
   dim: 512
   initialize: xavier_normal_
@@ -25,12 +21,15 @@ lookup_embedder:
       gain: 1.0
     xavier_uniform_:
       gain: 1.0
-model: transe
+model: reciprocal_relations_model
 negative_sampling:
   num_samples:
     o: 158
     p: -1
     s: 70
+reciprocal_relations_model:
+  base_model:
+    type: transe
 train:
   auto_correct: true
   batch_size: 128
@@ -48,9 +47,14 @@ train:
 transe:
   entity_embedder:
     dropout: 0.2519204934424376
+    normalize:
+      p: -1.0
     regularize_weight: 2.1299293567133326e-07
   l_norm: 2.0
   relation_embedder:
+    dropout: -0.025948206777731686
+    normalize:
+      p: -1.0
     regularize_weight: 8.992034045083661e-13
 valid:
   early_stopping:
