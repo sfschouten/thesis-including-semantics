@@ -15,7 +15,7 @@ entity_ranking:
 import:
 - type_linkprior
 model: type_linkprior 
-type_prior:
+type_linkprior:
   base_model: 
     type: prior-only
   lambda_head: 1.
