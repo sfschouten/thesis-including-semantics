@@ -1,0 +1,88 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+job:
+  external_tracking:
+    weights-and-biases:
+      project: sem_kge
+      group: transe
+dataset:
+  name: codex-s-typed
+  num_entities: 2034
+  num_relations: 42
+eval:
+  batch_size: 256
+  metrics_per:
+    relation_type: true
+  trace_level: example
+  num_workers: 2
+import:
+- transe
+- type_prior_embedder
+- reciprocal_relations_model
+- iaf_embedder
+lookup_embedder:
+  dim: 512
+  initialize: xavier_normal_
+  initialize_args:
+    normal_:
+      mean: 0.0
+      std: 7.387281885290558e-05
+    uniform_:
+      a: -0.860686260168301
+    xavier_normal_:
+      gain: 1.0
+    xavier_uniform_:
+      gain: 1.0
+      
+model: reciprocal_relations_model
+negative_sampling:
+  num_samples:
+    s: 2
+    o: 56
+train:
+  auto_correct: true
+  batch_size: 128
+  loss_arg: .nan
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    factor: 0.95
+    mode: max
+    patience: 6
+    threshold: 0.0001
+  max_epochs: 400
+  optimizer_args:
+    lr: 0.04121772717931592
+  type: negative_sampling
+reciprocal_relations_model:
+  base_model:
+    type: transe
+    entity_embedder:
+      type: type_prior_embedder
+      dim: 256
+      base_embedder:
+        regularize_weight: 1.3175179879955912e-07
+      prior_embedder:
+        type: iaf_embedder
+        direction: density-estimation
+        context_dim: 256
+        hidden_dims:
+          - 512
+          - 512
+        ldj_min_threshold: 0.
+        base_embedder.kl_loss: False
+        base_embedder.scale_embedder.initialize: constant_
+        base_embedder.scale_embedder.initialize_args.val: 0.225
+      nll_max_threshold: -1.
+      nll_max_scale: 1.
+      nll_max_damping: 1.
+    l_norm: 2.0
+    relation_embedder:
+      dim: 256
+      regularize_weight: 1.8180176908040284e-07
+valid:
+  every: 5
+  early_stopping:
+    min_threshold:
+      epochs: 50
+      metric_value: 0.05
+    patience: 10
+
