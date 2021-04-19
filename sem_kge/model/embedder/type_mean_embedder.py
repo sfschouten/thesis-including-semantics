@@ -84,8 +84,10 @@ class TypeMeanEmbedder(KgeEmbedder):
         
 
     def _embed(self, type_embeds, type_padding_mask, entity_embeds):
-        nr_types = (~type_padding_mask).sum(dim=1).unsqueeze(-1)
-        embeds = type_embeds.sum(dim=0) / nr_types
+        nr_types = (~type_padding_mask).sum(dim=1)
+        type_embeds[type_padding_mask.T] = 0.
+        embeds = type_embeds.sum(dim=0) / nr_types.unsqueeze(-1)
+        embeds[nr_types==0] = 0.
         
         if entity_embeds != None:
             embeds += entity_embeds
