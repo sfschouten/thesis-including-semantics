@@ -5,13 +5,13 @@ type_mean_embedder:
   type_embedder:
     type: lookup_embedder
     +++: +++
-    
+
   use_entity_embedder: True
   entity_embedder:
     type: lookup_embedder
     +++: +++
-    
-  dim: 100
+
+  dim: -1
 
   regularize_args:
     weighted: True
