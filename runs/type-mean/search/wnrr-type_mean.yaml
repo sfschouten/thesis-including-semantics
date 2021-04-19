@@ -4,7 +4,7 @@ job.type: search
 search:
   type: ax
   on_error: abort
-dataset.name: fb15k-237-typed
+dataset.name: wnrr-typed
 
 train:
   max_epochs: 400
