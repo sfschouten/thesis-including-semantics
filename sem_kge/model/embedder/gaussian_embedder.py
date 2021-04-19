@@ -106,7 +106,6 @@ class GaussianEmbedder(KgeEmbedder):
                 eps = _standard_normal(shape, dtype=dist.loc.dtype, device=dist.loc.device)
                 
                 if use_cache and cache_action=='push':
-                    print("WHYY?")
                     self.sample_stack.append(eps.detach())
             
             if use_cache and cache_action=='pop':

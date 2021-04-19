@@ -1,9 +1,11 @@
 modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+
 job:
   external_tracking:
     weights-and-biases:
       project: sem_kge
       group: transe
+
 dataset:
   name: codex-s-typed
   num_entities: 2034
@@ -12,13 +14,10 @@ eval:
   batch_size: 256
   metrics_per:
     relation_type: true
-  trace_level: example
-  num_workers: 2
 import:
 - transe
-- type_prior_embedder
+- type_mean_embedder
 - reciprocal_relations_model
-- iaf_embedder
 lookup_embedder:
   dim: 512
   initialize: xavier_normal_
@@ -32,12 +31,20 @@ lookup_embedder:
       gain: 1.0
     xavier_uniform_:
       gain: 1.0
-      
 model: reciprocal_relations_model
 negative_sampling:
   num_samples:
-    s: 2
     o: 56
+    s: 2
+  shared: True
+  implementation: batch
+reciprocal_relations_model:
+  base_model:
+    type: transe
+    entity_embedder:
+      dim: 512
+      type_embedder:
+        regularize_weight: 1.3175179879955912e-07
 train:
   auto_correct: true
   batch_size: 128
@@ -48,44 +55,23 @@ train:
     mode: max
     patience: 6
     threshold: 0.0001
-  lr_warmup: 10
   max_epochs: 400
-  optimizer_args:
-    lr: 0.04121772717931592
+  optimizer:
+    default:
+      args.lr: 0.04121772717931592
+#  lr_warmup: 5
   type: negative_sampling
-reciprocal_relations_model:
-  base_model:
-    type: transe
-    entity_embedder:
-      type: type_prior_embedder
-      dim: 256
-      base_embedder:
-        regularize_weight: 1.3175179879955912e-07
-      prior_embedder:
-        type: iaf_embedder
-        direction: density-estimation
-        context_dim: 256
-        hidden_dims:
-          - 512
-          - 512
-        ldj_min_threshold: 0.
-        base_embedder:
-          kl_loss: False
-          scale_embedder:
-            initialize: constant_
-            initialize_args.val: 0.225
-      nll_max_threshold: -5.
-      nll_max_scale: 1.
-      nll_max_damping: 1.
-    l_norm: 2.0
-    relation_embedder:
-      dim: 256
-      regularize_weight: 1.8180176908040284e-07
+transe:
+  entity_embedder:
+    type: type_mean_embedder
+  l_norm: 2.0
+  relation_embedder:
+    regularize_weight: 3.7237496170376805e-18
 valid:
-  every: 5
   early_stopping:
     min_threshold:
       epochs: 50
       metric_value: 0.05
     patience: 10
-
+entity_ranking:
+  chunk_size: 1024

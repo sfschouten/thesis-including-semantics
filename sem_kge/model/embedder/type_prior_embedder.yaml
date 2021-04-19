@@ -18,7 +18,7 @@ type_prior_embedder:
   nll_max_scale: 1.
   nll_max_damping: 1.
   
-  aggr_fun_types: mean          # Wether we average or sum the logprobs of types for a given entity
+  aggr_fun_types: sum           # Wether we average or sum the logprobs of types for a given entity
                                 # the latter results prioritization of entities with many types.
   
   regularize_args:

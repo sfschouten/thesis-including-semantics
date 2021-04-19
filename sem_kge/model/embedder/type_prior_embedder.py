@@ -22,11 +22,9 @@ class TypePriorEmbedder(KgeEmbedder):
         self, config, dataset, configuration_key, 
         vocab_size, init_for_load_only=False
     ):
-        
         super().__init__(
             config, dataset, configuration_key, init_for_load_only=init_for_load_only
         )
-
 
         dim = self.get_option("dim")
 
@@ -53,7 +51,10 @@ class TypePriorEmbedder(KgeEmbedder):
         
         self.PADDING_IDX = T
         
+        self.entity_type_set = dataset.index("entity_type_set").to(self.device)
+        
         T_ = max( types_str.count(',') + 1 for types_str in entity_types if types_str is not None )
+
         self.entity_types = torch.full((N, T_), self.PADDING_IDX, device=self.device)
         
         self.avg_nr_types = 0
@@ -83,16 +84,12 @@ class TypePriorEmbedder(KgeEmbedder):
         # the latter results prioritization of entities with many types.
         self.aggr_fun_types = self.check_option('aggr_fun_types', ['mean', 'sum'])
         self.nll_max_threshold = self.get_option("nll_max_threshold")
-        if self.aggr_fun_types == 'sum':
-            self.nll_max_threshold *= self.avg_nr_types
-        
+
         self.nll_type_prior = torch.tensor(0)
         
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
         self.base_embedder.prepare_job(job, **kwargs)
-        
-        #TODO move all side-losses to penalty so we can do this reliably
         self.prior_embedder.prepare_job(job, **kwargs)
         
         if isinstance(job, TrainingJob):
@@ -123,43 +120,61 @@ class TypePriorEmbedder(KgeEmbedder):
         return self.base_embedder.embed_all()
 
     def _calc_prior_loss(self, indexes):
-        types = self.entity_types[indexes]              # B x 2 x T
+        types = self.entity_types[indexes]              # B x 2 x T_
+        B, _, T_ = types.shape
+        
+        def negative_sample_types(positives):
+            T = self.dataset.num_types()
+            indices = indexes.view(2*B)
+            all_indices = torch.arange(T, device=self.device).unsqueeze(1).expand(T,2*B)
+            type_indices = (~self.entity_type_set[indices].T) * all_indices
+            type_indices[self.entity_type_set[indices].T] = self.PADDING_IDX
+            
+            idxs = list(range(T))
+            random.shuffle(idxs)
+            shuffled = type_indices[idxs]
+            subset = shuffled[:T_]
+            subset[positives==self.PADDING_IDX] = self.PADDING_IDX
+            return subset
+
+        def calc(embeds, type_indices):
+            shape = list(type_indices.shape) + [embeds.shape[3]]
+            embeds = embeds.expand(shape)                   # B x 2 x T x D
+
+            padding = type_indices == self.PADDING_IDX
+
+            log_pdf = self.prior_embedder.log_pdf(embeds, type_indices)
+            log_pdf[padding] = 0                            # B x 2 X T
+            nll = -log_pdf.sum(2)
+
+            if self.aggr_fun_types == 'mean':
+                nr_types = (~padding).sum(2)                # B x 2
+                nr_types[nr_types==0] = 1     # prevent divide_by_zero 
+                                              # (where nr_types is zero, so will nll)
+                nll = nll.div(nr_types)
+            return nll.mean()
+        
+        neg_types = negative_sample_types(types.view(2*B,T_).T).T.view(B, 2, T_)
         
         embeds = self.base_embedder.embed(indexes)      # B x 2 x D
         embeds = embeds.unsqueeze(2)                    # B x 2 x 1 x D
-        shape = list(types.shape) + [embeds.shape[3]]
-        embeds = embeds.expand(shape)                   # B x 2 x T x D
         
-        padding = types == self.PADDING_IDX
-        
-        log_pdf = self.prior_embedder.log_pdf(embeds, types)
-        log_pdf[padding] = 0                            # B x 2 X T
-        nll = -log_pdf.sum(2)
-        
-        if self.aggr_fun_types == 'mean':
-            nr_types = (~padding).sum(2)                # B x 2
-            nr_types[nr_types==0] = 1     # prevent divide_by_zero 
-                                          # (where nr_types is zero, so will nll)
-            nll = nll.div(nr_types)
-            
-        self.nll_type_prior = nll.mean()
-        
-        #c = 1 #random.randint(0, types.shape[0])
-        #false_types = torch.cat((types[c:,:,:], types[:c,:,:]), dim=0)
-        
-        #log_pdf = self.prior_embedder.log_pdf(embeds, false_types)
-        #log_pdf[false_types == self.PADDING_IDX] = 0
-        
-        #self.nll_type_prior += log_pdf.sum(2).mean()
+        self.nll_type_prior  = calc(embeds, types)
+        self.nll_type_prior -= calc(embeds, neg_types)
 
     def penalty(self, **kwargs):
         terms = super().penalty(**kwargs)
+        terms += self.base_embedder.penalty(**kwargs)
         
+        # add prior_embedder penalty terms which requires setting 
+        # the 'indexes' to the indices of the types.
         indexes = kwargs['indexes']                     # B x 2
         embeds = self.base_embedder.embed(indexes)
-        
-        terms += self.base_embedder.penalty(**kwargs)
-        terms += self.prior_embedder.penalty(**kwargs, points=embeds)
+        type_indexes = self.entity_types[indexes.view(-1)]
+        type_indexes = type_indexes[type_indexes!=self.PADDING_IDX]
+        prior_kwargs = dict(points=embeds, **kwargs)
+        prior_kwargs['indexes'] = type_indexes
+        terms += self.prior_embedder.penalty(**prior_kwargs)
         
         self._calc_prior_loss(indexes)
         

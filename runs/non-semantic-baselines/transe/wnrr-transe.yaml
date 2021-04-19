@@ -1,3 +1,7 @@
+job.external_tracking:
+  weights-and-biases:
+    project: sem_kge
+    group: transe
 dataset:
   name: wnrr
 eval:

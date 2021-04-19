@@ -59,9 +59,11 @@ reciprocal_relations_model:
       dim: 512
       base_embedder:
         regularize_weight: 1.3175179879955912e-07
-      nll_max_threshold: -1.
-      nll_max_scale: 1.
-      nll_max_damping: 1.
+      prior_embedder:
+        kl_loss: False
+      nll_max_threshold: -2.5
+      nll_max_scale: 0.5
+      nll_max_damping: 0.5
     l_norm: 2.0
     relation_embedder:
       dim: 512

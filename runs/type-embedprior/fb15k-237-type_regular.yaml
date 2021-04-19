@@ -22,8 +22,8 @@ negative_sampling:
     s: 61
     p: -1
     o: 192
-  shared: True
-  implementation: batch
+#  shared: True
+#  implementation: batch
 train:
   auto_correct: true
   batch_size: 128
@@ -39,15 +39,37 @@ train:
   optimizer_args:
     lr: 0.0003
   type: negative_sampling
+lookup_embedder:
+  dim: 128
+  initialize: uniform_
+  initialize_args:
+    normal_:
+      mean: 0.0
+      std: 3.5688807324453804e-05
+    uniform_:
+      a: -1.0000000000065512e-05
+    xavier_normal_:
+      gain: 1.0
+    xavier_uniform_:
+      gain: 1.0
+  regularize: ''
 reciprocal_relations_model:
   base_model:
     type: transe
     entity_embedder:
       type: type_prior_embedder
-      dim: 192
+      dim: 128
+      base_embedder:  
+        regularize_weight: 7.469488745511875e-12
+      prior_embedder:
+        kl_loss: False
+      nll_max_threshold: -8.
+      nll_max_scale: 1.
+      nll_max_damping: 1.
+      aggr_fun_types: sum
     l_norm: 2.0
     relation_embedder:
-      dim: 192
+      dim: 128
       regularize_weight: 1.8180176908040284e-07
 entity_ranking:
   chunk_size: 1024
