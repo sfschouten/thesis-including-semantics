@@ -48,6 +48,7 @@ train:
     mode: max
     patience: 6
     threshold: 0.0001
+  lr_warmup: 10
   max_epochs: 400
   optimizer_args:
     lr: 0.04121772717931592
@@ -68,10 +69,12 @@ reciprocal_relations_model:
           - 512
           - 512
         ldj_min_threshold: 0.
-        base_embedder.kl_loss: False
-        base_embedder.scale_embedder.initialize: constant_
-        base_embedder.scale_embedder.initialize_args.val: 0.225
-      nll_max_threshold: -1.
+        base_embedder:
+          kl_loss: False
+          scale_embedder:
+            initialize: constant_
+            initialize_args.val: 0.225
+      nll_max_threshold: -5.
       nll_max_scale: 1.
       nll_max_damping: 1.
     l_norm: 2.0
