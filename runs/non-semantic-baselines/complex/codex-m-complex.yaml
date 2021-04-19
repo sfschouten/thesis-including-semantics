@@ -1,3 +1,7 @@
+job.external_tracking:
+  weights-and-biases:
+    project: sem_kge
+    group: complex
 KvsAll:
   label_smoothing: 0.20810008104890582
 complex:
