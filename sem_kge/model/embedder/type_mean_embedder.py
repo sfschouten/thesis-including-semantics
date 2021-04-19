@@ -30,6 +30,8 @@ class TypeMeanEmbedder(KgeEmbedder):
         )
 
         dim = self.get_option("dim")
+        if dim == -1:
+            dim = self.get_option("type_embedder.dim")
             
         config.set(self.configuration_key + ".entity_embedder.dim", dim)
         config.set(self.configuration_key + ".type_embedder.dim", dim)
