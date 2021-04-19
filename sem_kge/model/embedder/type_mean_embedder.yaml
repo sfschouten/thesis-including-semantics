@@ -1,0 +1,17 @@
+import: [lookup_embedder]
+
+type_mean_embedder:
+  class_name: TypeMeanEmbedder
+  type_embedder:
+    type: lookup_embedder
+    +++: +++
+    
+  use_entity_embedder: True
+  entity_embedder:
+    type: lookup_embedder
+    +++: +++
+    
+  dim: 100
+
+  regularize_args:
+    weighted: True
