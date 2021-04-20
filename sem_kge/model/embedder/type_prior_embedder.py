@@ -8,13 +8,14 @@ from kge.job.train import TrainingJob
 
 from sem_kge import TypedDataset
 from sem_kge import misc
+from sem_kge.model import LoggingMixin
 
 from functools import partial
 import random
 
 import mdmm
 
-class TypePriorEmbedder(KgeEmbedder):
+class TypePriorEmbedder(KgeEmbedder, LoggingMixin):
     """ 
     """
 
@@ -83,7 +84,7 @@ class TypePriorEmbedder(KgeEmbedder):
         # wether we average or sum the logprobs of types for a given entity
         # the latter results prioritization of entities with many types.
         self.aggr_fun_types = self.check_option('aggr_fun_types', ['mean', 'sum'])
-        self.nll_max_threshold = self.get_option("nll_max_threshold")
+        self.nll_max_threshold = self.get_option_and_log("nll_max_threshold")
 
         self.nll_type_prior = torch.tensor(0)
         
@@ -97,8 +98,8 @@ class TypePriorEmbedder(KgeEmbedder):
             max_prior_nll_constraint = mdmm.MaxConstraint(
                 lambda: self.nll_type_prior,
                 self.nll_max_threshold,
-                scale = self.get_option("nll_max_scale"),
-                damping = self.get_option("nll_max_damping")
+                scale = self.get_option_and_log("nll_max_scale"),
+                damping = self.get_option_and_log("nll_max_damping")
             )
             self.mdmm_module = mdmm.MDMM([max_prior_nll_constraint])
             misc.add_constraints_to_job(job, self.mdmm_module)

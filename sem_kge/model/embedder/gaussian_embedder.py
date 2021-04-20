@@ -12,11 +12,12 @@ from kge.model import KgeEmbedder
 from kge.job.train import TrainingJob
 
 from sem_kge import misc
+from sem_kge.model import LoggingMixin
 
 import mdmm
 
 
-class GaussianEmbedder(KgeEmbedder):
+class GaussianEmbedder(KgeEmbedder, LoggingMixin):
     DIST = torch.distributions.normal.Normal
 
     def __init__(
@@ -30,7 +31,7 @@ class GaussianEmbedder(KgeEmbedder):
         base_dim = self.get_option("dim")
         self.device = self.config.get("job.device")
         self.vocab_size = vocab_size
-        self.kl_loss = self.get_option("kl_loss")
+        self.kl_loss = self.get_option_and_log("kl_loss")
 
         # initialize loc_embedder
         config.set(self.configuration_key + ".loc_embedder.dim", base_dim)
@@ -71,9 +72,9 @@ class GaussianEmbedder(KgeEmbedder):
             # use Modified Differential Multiplier Method for regularization loss
             max_kl_constraint = mdmm.MaxConstraint(
                 lambda: self.last_kl_divs[-1],
-                self.get_option("kl_max_threshold"),
-                scale = self.get_option("kl_max_scale"), 
-                damping = self.get_option("kl_max_damping")
+                self.get_option_and_log("kl_max_threshold"),
+                scale = self.get_option_and_log("kl_max_scale"), 
+                damping = self.get_option_and_log("kl_max_damping")
             )
             dummy_val = torch.zeros((1), device=self.device)
             kl_max_module = mdmm.MDMM([max_kl_constraint])

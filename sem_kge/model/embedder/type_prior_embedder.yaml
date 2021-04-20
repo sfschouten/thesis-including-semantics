@@ -10,8 +10,6 @@ type_prior_embedder:
     
   prior_embedder:
     type: gaussian_embedder
-    scale_embedder.initialize_args.val: 0.2
-    kl_loss: False
     +++: +++
   
   nll_max_threshold: 0.
