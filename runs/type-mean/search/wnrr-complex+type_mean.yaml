@@ -1,58 +1,54 @@
 modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 
-job:
-  type: search
-
-search.type: ax
-
-dataset.name: fb15k-237-typed
+job.type: search
+search:
+  type: ax
+  on_error: abort
+dataset.name: wnrr-typed
 
 train:
-  max_epochs: 125
+  max_epochs: 400
   auto_correct: true
 
 valid:
   every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+  filter_with_test: True
   early_stopping:
+    patience: 10
     min_threshold:
-      epochs: 15
-      metric_value: 0.1
+      epochs: 50
+      metric_value: 0.05
 
 eval:
   batch_size: 256
   metrics_per:
     relation_type: true
-  trace_level: example
 
 import:
-- transe
-- type_prior_embedder
+- complex
+- type_mean_embedder
 - reciprocal_relations_model
 
 reciprocal_relations_model:
   base_model:
-    type: transe
-transe:
+    type: complex
+complex:
   entity_embedder:
-    type: type_prior_embedder
+    type: type_mean_embedder
 
 search.on_error: continue
 
 ax_search:
   num_trials: 30
   num_sobol_trials: 30
-  
-  parameter_constraints:
-    - lookup_embedder.dim <= type_prior_embedder.dim
-    - lookup_embedder.dim >= type_prior_embedder.dim
-  
   parameters:
-  
+
     # model
     - name: model
       type: fixed
       value: reciprocal_relations_model
-      
+
     # training hyperparameters
     - name: train.batch_size
       type: choice
@@ -61,15 +57,13 @@ ax_search:
     - name: train.type
       type: fixed
       value: negative_sampling
-    - name: train.optimizer.default.type
+    - name: train.optimizer
       type: choice
       values: [Adam, Adagrad]
-      
     - name: train.loss
       type: fixed
       value: kl
-      
-    - name: train.optimizer.default.args.lr
+    - name: train.optimizer_args.lr
       type: range
       bounds: [0.0001, 1.]
       log_scale: True
@@ -91,12 +85,10 @@ ax_search:
 
     # embedding dimension
     - name: lookup_embedder.dim
-      type: range 
-      bounds: [64, 384]
-    - name: type_prior_embedder.dim
-      type: range 
-      bounds: [64, 384]
-      
+      type: choice 
+      values: [128, 256, 512]
+      is_ordered: True
+
     # embedding initialization
     - name: lookup_embedder.initialize
       type: choice
@@ -117,45 +109,45 @@ ax_search:
     - name: lookup_embedder.initialize_args.xavier_normal_.gain
       type: fixed
       value: 1.0
-  
+
     # embedding regularization
     - name: lookup_embedder.regularize
       type: choice
-      values: ['', 'lp']
-    - name: lookup_embedder.regularize_args.p
-      type: choice
-      values: [1, 2, 3]
+      values: ['', 'l3', 'l2', 'l1']
       is_ordered: True
     - name: lookup_embedder.regularize_args.weighted
       type: choice
       values: [True, False]
-    - name: transe.entity_embedder.base_embedder.regularize_weight
+    - name: complex.entity_embedder.type_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
-    - name: transe.entity_embedder.type_embedder.regularize_weight
+    - name: complex.entity_embedder.entity_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
-    - name: transe.relation_embedder.regularize_weight
+    - name: complex.relation_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
 
     # embedding dropout
-    - name: transe.entity_embedder.base_embedder.dropout
+    - name: complex.entity_embedder.type_embedder.dropout
+      type: range
+      bounds: [-0.5, 0.5]    
+    - name: complex.entity_embedder.entity_embedder.dropout
       type: range
       bounds: [-0.5, 0.5]
-    - name: transe.relation_embedder.dropout
+    - name: complex.relation_embedder.dropout
       type: range
       bounds: [-0.5, 0.5]
 
     # training-type specific hyperparameters
-    - name: negative_sampling.num_samples.s   #train_type = negative_sampling
+    - name: negative_sampling.num_negatives_s #train_type = negative_sampling
       type: range                             #train_type = negative_sampling
       bounds: [1, 1000]                       #train_type = negative_sampling
       log_scale: True                         #train_type = negative_sampling
-    - name: negative_sampling.num_samples.o   #train_type = negative_sampling
+    - name: negative_sampling.num_negatives_o #train_type = negative_sampling
       type: range                             #train_type = negative_sampling
       bounds: [1, 1000]                       #train_type = negative_sampling
       log_scale: True                         #train_type = negative_sampling
@@ -165,25 +157,21 @@ ax_search:
     - name: negative_sampling.implementation
       type: fixed
       value: batch
-      
+
+    # model-specific entries
+    - name: complex.entity_embedder.type_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+    - name: complex.entity_embedder.entity_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+    - name: complex.relation_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+
     #
     - name: entity_ranking.chunk_size
       type: fixed
       value: 1024
-      
-    # margin
-    - name: train.loss_arg
-      type: range
-      bounds: [0.0, 10.0]
-  
-    # model-specific entries
-    
-    - name: type_prior_embedder.prior_embedder.scale_embedder.initialize_args.val
-      type: range
-      bounds: [0., 1.]
-      
-    - name: type_prior_embedder.nll_max_threshold
-      type: range
-      bounds: [0., 150.]
 
 
