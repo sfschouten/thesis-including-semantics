@@ -5,7 +5,7 @@ job:
 search:
   type: ax
   on_error: continue
-dataset.name: fb15k-237-typed
+dataset.name: codex-m-typed
 
 train:
   max_epochs: 400

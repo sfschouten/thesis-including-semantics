@@ -5,7 +5,7 @@ job:
 search:
   type: ax
   on_error: continue
-dataset.name: fb15k-237-typed
+dataset.name: codex-m-typed
 
 train:
   max_epochs: 400
@@ -27,15 +27,15 @@ eval:
   trace_level: example
 
 import:
-- transe
+- complex
 - type_prior_embedder
 - reciprocal_relations_model
 
 reciprocal_relations_model:
   base_model:
-    type: transe
+    type: complex
     entity_embedder.prior_embedder.kl_loss: False
-transe:
+complex:
   entity_embedder:
     type: type_prior_embedder
 
@@ -62,7 +62,7 @@ ax_search:
       is_ordered: True
     - name: train.type
       type: fixed
-      value: negative_sampling
+      value: KvsAll
     - name: train.optimizer.default.type
       type: choice
       values: [Adam, Adagrad]
@@ -129,24 +129,24 @@ ax_search:
     - name: lookup_embedder.regularize_args.weighted
       type: choice
       values: [True, False]
-    - name: transe.entity_embedder.base_embedder.regularize_weight
+    - name: complex.entity_embedder.base_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
-    - name: transe.entity_embedder.prior_embedder.regularize_weight
+    - name: complex.entity_embedder.prior_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
-    - name: transe.relation_embedder.regularize_weight
+    - name: complex.relation_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
 
     # embedding dropout
-    - name: transe.entity_embedder.base_embedder.dropout
+    - name: complex.entity_embedder.base_embedder.dropout
       type: range
       bounds: [-0.5, 0.5]
-    - name: transe.relation_embedder.dropout
+    - name: complex.relation_embedder.dropout
       type: range
       bounds: [-0.5, 0.5]
 
