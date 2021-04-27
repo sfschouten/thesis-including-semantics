@@ -3,20 +3,25 @@ modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 job:
   type: search
 
-search.type: ax
+search:
+  type: ax
+  on_error: abort
 
-dataset.name: fb15k-237-typed
+dataset.name: wnrr-typed
 
 train:
-  max_epochs: 125
+  max_epochs: 400
   auto_correct: true
 
 valid:
   every: 5
+  metric: mean_reciprocal_rank_filtered_with_test
+  filter_with_test: True
   early_stopping:
+    patience: 10
     min_threshold:
-      epochs: 15
-      metric_value: 0.1
+      epochs: 50
+      metric_value: 0.05
 
 eval:
   batch_size: 256
@@ -36,11 +41,10 @@ transe:
   entity_embedder:
     type: type_attentive_embedder
 
-search.on_error: continue
 
 ax_search:
-  num_trials: 45
-  num_sobol_trials: 15
+  num_trials: 30
+  num_sobol_trials: 30
   parameters:
   
     # model
@@ -59,15 +63,12 @@ ax_search:
     - name: train.optimizer
       type: choice
       values: [Adam, Adagrad]
-      
-      
-      #TODO check if this makes sense
+
     - name: train.loss
-      type: choice
-      values: [margin_ranking, kl] 
-      
-      
-    - name: train.optimizer_args.lr
+      type: fixed
+      value: kl
+
+    - name: train.optimizer.default.args.lr
       type: range
       bounds: [0.0001, 1.]
       log_scale: True
@@ -161,23 +162,49 @@ ax_search:
     - name: negative_sampling.implementation
       type: fixed
       value: batch
-      
-      
+
+    # model-specific entries
+    - name: transe.l_norm
+      type: choice
+      values: [1.0, 2.0]
+      is_ordered: True
+    - name: transe.entity_embedder.type_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+    - name: transe.entity_embedder.base_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+    - name: transe.relation_embedder.normalize.p
+      type: choice
+      values: [-1.0, 2.0]
+
     #
     - name: entity_ranking.chunk_size
       type: fixed
       value: 1024
-      
-    # margin
-    - name: train.loss_arg
-      type: range
-      bounds: [0.0, 10.0]
-  
-    # model-specific entries
-    
+
+    # model-specific entries    
     - name: transe.entity_embedder.attn_nhead
       type: choice
       values: [1, 2, 4, 8]
       is_ordered: True
-      
+    - name: transe.entity_embedder.mi_min_threshold
+      type: range
+      bounds: [-20., 20.]                   #negative values disable the mutual information constraint
+      is_ordered: True
+    - name: transe.entity_embedder.mi_min_scale
+      type: range
+      bounds: [0.01, 100.]
+      log_scale: True
+    - name: transe.entity_embedder.mi_min_damping
+      type: range
+      bounds: [0.01, 100.]
+      log_scale: True
+    - name: train.optimizer.type_attentative.regex
+      type: fixed
+      value: .*entity_embedder\.(self_attn|mi_proj).*
+    - name: train.optimizer.type_attentative.args.lr
+      type: range
+      bounds: [0.0001, 1.]
+      log_scale: True
 
