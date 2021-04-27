@@ -110,9 +110,9 @@ class TypeAttentiveEmbedder(KgeEmbedder):
         if self.mi_loss and isinstance(job, TrainingJob):
             self.init_mdmm_module()
             misc.add_constraints_to_job(job, self.mdmm_module)
-        
+
         # trace the regularization loss
-        def trace_regularization_loss(job):
+        def trace_loss(job):
             key = f"{self.configuration_key}.mi"
             job.current_trace["batch"][key] = self.mutual_info.item()
             if self.mi_loss and isinstance(job, TrainingJob):
@@ -120,7 +120,7 @@ class TypeAttentiveEmbedder(KgeEmbedder):
 
         from kge.job import TrainingOrEvaluationJob
         if isinstance(job, TrainingOrEvaluationJob):
-            job.pre_batch_hooks.append(trace_regularization_loss)
+            job.pre_batch_hooks.append(trace_loss)
 
     def _embed(self, embeds, type_embeds, type_padding_mask, return_weights=False):
         query = embeds.unsqueeze(0)                  #    1 x B x D

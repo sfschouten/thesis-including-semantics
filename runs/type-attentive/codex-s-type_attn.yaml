@@ -61,7 +61,7 @@ train:
     default:
       args.lr: 0.04121772717931592
     type_attentive:
-      regex: .*type_attentive_embedder.self_attn.*
+      regex: .*entity_embedder\.(self_attn|mi_proj).*
       args.lr: 0.008
   lr_warmup: 5
   type: negative_sampling
