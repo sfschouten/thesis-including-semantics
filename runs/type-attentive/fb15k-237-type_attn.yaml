@@ -26,33 +26,59 @@ negative_sampling:
   implementation: batch
 train:
   auto_correct: true
-  batch_size: 128
-  loss_arg: 1.0
+  batch_size: 512
+  loss: kl
+  loss_arg: 5.290767559781671
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
+    +++: +++
     factor: 0.95
     mode: max
-    patience: 5
+    patience: 6
     threshold: 0.0001
-  max_epochs: 400
-  optimizer: Adam
-  optimizer_args:
-    lr: 0.0003
+  max_epochs: 125
+  num_workers: 0
+  optimizer.default:
+    type: Adagrad
+    args.lr: 0.006474734500293569
   type: negative_sampling
-lookup_embedder.dim: 128
+lookup_embedder:
+  dim: 256
+  dropout: 0.0
+  initialize: xavier_uniform_
+  initialize_args:
+    +++: +++
+    normal_:
+      mean: 0.0
+      std: 0.0034712565407065813
+    uniform_:
+      a: -0.5176279642452393
+    xavier_normal_:
+      gain: 1.0
+    xavier_uniform_:
+      gain: 1.0
 reciprocal_relations_model:
   base_model:
     type: transe
 transe:
   entity_embedder:
     type: type_attentive_embedder
-  l_norm: 2.0
+    attn_nhead: 2
+    base_embedder:
+      dropout: 0.38400186877697706
+      regularize_weight: 6.372559539384783e-19
+    type_embedder:
+      dropout: 0.0844023060053587
+      regularize_weight: 4.7364903527522544e-08
+  l_norm: 1.0
   relation_embedder:
-    regularize_weight: 1.8180176908040284e-07
+    type: lookup_embedder
+    dropout: -0.051683209836483
+    regularize_weight: 2.5977747143513428e-11
 entity_ranking:
   chunk_size: 1024
 valid:
-  every: 1
+  every: 5
   early_stopping:
     min_threshold:
       epochs: 50

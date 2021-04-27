@@ -10,6 +10,11 @@ type_attentive_embedder:
     +++: +++
   dropout: 0.
   dim: -1
+  
+  mi_min_threshold: 10.
+  mi_min_scale: 1.
+  mi_min_damping: 1.
+  
   attn_nhead: 1
   regularize_args:
-    weighted: False
+    weighted: True
