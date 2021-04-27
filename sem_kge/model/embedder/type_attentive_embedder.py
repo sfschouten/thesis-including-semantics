@@ -176,7 +176,7 @@ class TypeAttentiveEmbedder(KgeEmbedder):
             type_embeds = type_embeds.unsqueeze(-1)           # T' x B x D x 1
 
             proj_embeds = self.mi_proj(embeds)
-            mi = torch.matmul(proj_embeds, type_embeds).squeeze()  # T' x B
+            mi = torch.matmul(proj_embeds, type_embeds).squeeze(dim=-1).squeeze(dim=-1)  # T' x B
             mi[type_paddin] = 0
             nr_types = (~type_paddin).sum(dim=0)
             mi = mi.sum(dim=0) / nr_types                     # B
