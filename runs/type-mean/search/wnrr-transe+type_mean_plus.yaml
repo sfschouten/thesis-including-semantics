@@ -4,7 +4,7 @@ job.type: search
 search:
   type: ax
   on_error: abort
-dataset.name: codex-s-typed
+dataset.name: wnrr-typed
 
 train:
   max_epochs: 400
@@ -177,8 +177,5 @@ ax_search:
     - name: entity_ranking.chunk_size
       type: fixed
       value: 1024
-      
-    - name: type_mean_embedder.use_entity_embedder
-      type: fixed
-      value: false
+
 

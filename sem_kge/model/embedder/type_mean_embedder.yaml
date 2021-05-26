@@ -6,7 +6,7 @@ type_mean_embedder:
     type: lookup_embedder
     +++: +++
 
-  use_entity_embedder: True
+  use_entity_embedder: true
   entity_embedder:
     type: lookup_embedder
     +++: +++
