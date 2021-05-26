@@ -12,11 +12,12 @@ from kge.job.train import TrainingJob
 
 from sem_kge import TypedDataset
 from sem_kge import misc
+from sem_kge.model import LoggingMixin
 
 import mdmm
 
 
-class TypeMeanEmbedder(KgeEmbedder):
+class TypeMeanEmbedder(KgeEmbedder, LoggingMixin):
     """ 
     """
 
@@ -38,7 +39,7 @@ class TypeMeanEmbedder(KgeEmbedder):
 
         self.vocab_size = vocab_size
         self.device = self.config.get("job.device")
-        self.use_entity_embedder = self.get_option("use_entity_embedder")
+        self.use_entity_embedder = self.get_option_and_log("use_entity_embedder")
 
         if self.use_entity_embedder:
             # initialize entity_embedder
