@@ -11,7 +11,7 @@ dataset:
   num_entities: 2034
   num_relations: 42
 eval:
-  batch_size: 256
+  batch_size: 512
   metrics_per:
     relation_type: true
 import:
@@ -24,9 +24,9 @@ lookup_embedder:
   initialize_args:
     normal_:
       mean: 0.0
-      std: 7.387281885290558e-05
+      std: 0.38502710782632205
     uniform_:
-      a: -0.860686260168301
+      a: -0.18023790532396167
     xavier_normal_:
       gain: 1.0
     xavier_uniform_:
@@ -34,18 +34,13 @@ lookup_embedder:
 model: reciprocal_relations_model
 negative_sampling:
   num_samples:
-    o: 56
-    s: 2
+    o: 31
+    s: 4
   shared: True
   implementation: batch
 reciprocal_relations_model:
   base_model:
     type: transe
-    entity_embedder:
-      base_embedder:
-        regularize_weight: 1.3175179879955912e-07
-      #type_embedder:
-      #  regularize_weight: 1.3175179879955912e-07
 train:
   auto_correct: true
   batch_size: 128
@@ -54,24 +49,36 @@ train:
   lr_scheduler_args:
     factor: 0.95
     mode: max
-    patience: 6
+    patience: 2
     threshold: 0.0001
   max_epochs: 400
   optimizer:
     default:
-      args.lr: 0.04121772717931592
+      type: Adam
+      args.lr: 0.00039503865681096934
     type_attentive:
       regex: .*entity_embedder\.(self_attn|mi_proj).*
-      args.lr: 0.008
+      args.lr: 0.00039503865681096934
   lr_warmup: 5
   type: negative_sampling
 transe:
   entity_embedder:
     type: type_attentive_embedder
-    mi_min_threshold: 7.5
-  l_norm: 2.0
+    mi_min_threshold: 0.
+    add_entity_to_keyvalue: False
+    base_embedder:
+      dropout: -0.4636794375255704
+      normalize.p: -1.0
+      regularize_weight: 1.9369382976524816e-10
+    type_embedder:
+      dropout: 0.10839508008211851
+      normalize.p: -1.0
+      regularize_weight: 2.656232789337285e-19
+  l_norm: 1.0
   relation_embedder:
-    regularize_weight: 3.7237496170376805e-18
+    dropout: 0.2565881032496691
+    regularize_weight: 2.514161513824053e-12
+    normalize.p: 2.0
 valid:
   early_stopping:
     min_threshold:

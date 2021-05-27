@@ -11,10 +11,16 @@ type_attentive_embedder:
   dropout: 0.
   dim: -1
   
-  mi_min_threshold: 10.
+  # By default the entity embedding is only used as the query in the attention mechanism.
+  # If this is set to true, it will also be appended to the key/value vectors.
+  add_entity_to_keyvalue: False
+
+  attn_nhead: 1
+  
+  # When threshold is zero or below the Mutual Information loss is disabled.
+  mi_min_threshold: 0.
   mi_min_scale: 1.
   mi_min_damping: 1.
   
-  attn_nhead: 1
   regularize_args:
     weighted: True

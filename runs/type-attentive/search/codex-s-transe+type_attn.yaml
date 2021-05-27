@@ -188,6 +188,7 @@ ax_search:
       type: choice
       values: [1, 2, 4, 8]
       is_ordered: True
+      
     - name: transe.entity_embedder.mi_min_threshold
       type: range
       bounds: [-20., 20.]                   #negative values disable the mutual information constraint
@@ -200,6 +201,7 @@ ax_search:
       type: range
       bounds: [0.01, 100.]
       log_scale: True
+      
     - name: train.optimizer.type_attentative.regex
       type: fixed
       value: .*entity_embedder\.(self_attn|mi_proj).*

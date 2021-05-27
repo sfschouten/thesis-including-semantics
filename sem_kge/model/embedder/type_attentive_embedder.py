@@ -93,6 +93,8 @@ class TypeAttentiveEmbedder(KgeEmbedder):
         # init dummy module, in case we wish to load parameters from file.
         self.init_mdmm_module()
         
+        self.add_entity_to_keyvalue = self.get_option("add_entity_to_keyvalue")
+        
 
     def init_mdmm_module(self):
         self.mdmm_module = mdmm.MDMM([ mdmm.MinConstraint(
@@ -123,16 +125,30 @@ class TypeAttentiveEmbedder(KgeEmbedder):
             job.pre_batch_hooks.append(trace_loss)
 
     def _embed(self, embeds, type_embeds, type_padding_mask, return_weights=False):
-        query = embeds.unsqueeze(0)                  #    1 x B x D
-        key = torch.cat((query, type_embeds), dim=0) # T'+1 x B x D
+    
+        query = embeds.unsqueeze(0)                         # 1 x B x D
+        if self.add_entity_to_keyvalue:
+            key = torch.cat((query, type_embeds), dim=0)    # T'+1 x B x D
+        else:
+            key = type_embeds                               # T' x B x D
         value = key
-
+        
+        
         B,T = type_padding_mask.shape
-        prepend = torch.zeros((B,1), device=self.device).bool()
-        mask = torch.cat((prepend, type_padding_mask), dim=1)
+        if self.add_entity_to_keyvalue:
+            prepend = torch.zeros((B,1), device=self.device).bool()
+            mask = torch.cat((prepend, type_padding_mask), dim=1)
+        else:
 
+            nr_types = (~type_padding_mask).sum(dim=1)
+            mask = type_padding_mask
+            
+            # set at least one to False
+            mask[nr_types!=0, 0] = False
+        
         attn_output, attn_weights = self.self_attn(query, key, value, key_padding_mask=mask)
-        attn_output = attn_output.squeeze()          # 1 x B x D, B x 1 x T'+1
+        attn_output = attn_output.squeeze()          # 1 x B x D, B x 1 x T'[+1]
+
 
         return attn_output if not return_weights else (attn_output, attn_weights)
 
