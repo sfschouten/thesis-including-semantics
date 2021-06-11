@@ -104,7 +104,14 @@ class TypeAttentiveExperimentJob(EvaluationJob):
             
             # 
             entropy = Categorical(probs = t_attn).entropy()
-            nr_outcomes = (t_attn>0).sum(dim=1) + 1
+            nr_outcomes = (~t_paddin).sum(dim=1)
+            
+            print(embedder.add_entity_to_keyvalue)
+            print(embedder.get_option('add_entity_to_keyvalue'))
+            if hasattr(embedder, 'add_entity_to_keyvalue') and embedder.add_entity_to_keyvalue:
+                nr_outcomes += 1
+                print("Increasing outcomes by 1, because this embedder also adds entity to key/value.")
+            
             entropy /= torch.log(nr_outcomes.float())
 
             return dict(
