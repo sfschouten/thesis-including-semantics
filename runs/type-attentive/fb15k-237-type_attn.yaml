@@ -19,9 +19,9 @@ import:
 model: reciprocal_relations_model
 negative_sampling:
   num_samples:
-    s: 61
+    s: 4
     p: -1
-    o: 192
+    o: 457
   shared: True
   implementation: batch
 train:
@@ -34,47 +34,58 @@ train:
     +++: +++
     factor: 0.95
     mode: max
-    patience: 6
+    patience: 4
     threshold: 0.0001
   max_epochs: 125
   num_workers: 0
-  optimizer.default:
-    type: Adagrad
-    args.lr: 0.006474734500293569
+  optimizer:
+    default:
+      type: Adam
+      args.lr: 0.00017528104732161985
+    type_attentative:
+      regex: .*entity_embedder\\.(self_attn|mi_proj).*
+      args.lr: 0.6653705273288685
   type: negative_sampling
 lookup_embedder:
-  dim: 256
-  dropout: 0.0
-  initialize: xavier_uniform_
+  dim: 512
+  initialize: normal_
   initialize_args:
     +++: +++
     normal_:
       mean: 0.0
-      std: 0.0034712565407065813
+      std: 0.00016504122472349748
     uniform_:
-      a: -0.5176279642452393
+      a: -0.15035534471389833
     xavier_normal_:
       gain: 1.0
     xavier_uniform_:
       gain: 1.0
+  regularize: l1
+  regularize_args.weighted: True
 reciprocal_relations_model:
   base_model:
     type: transe
 transe:
   entity_embedder:
     type: type_attentive_embedder
-    attn_nhead: 2
+    attn_nhead: 1
+    mi_min_threshold: -4.400739558041096
+    mi_min_scale: 0.02301142083565282
+    mi_min_damping: 1.7479820087405986
     base_embedder:
-      dropout: 0.38400186877697706
-      regularize_weight: 6.372559539384783e-19
+      dropout: -0.00843233335763216
+      regularize_weight: 8.491592776710134e-17
+      normalize.p: 2.0
     type_embedder:
-      dropout: 0.0844023060053587
-      regularize_weight: 4.7364903527522544e-08
-  l_norm: 1.0
+      dropout: -0.37105869222432375
+      regularize_weight: 4.462872602737171e-16
+      normalize.p: 2.0
+  l_norm: 2.0
   relation_embedder:
     type: lookup_embedder
-    dropout: -0.051683209836483
-    regularize_weight: 2.5977747143513428e-11
+    dropout: -0.3327635070309043
+    regularize_weight: 2.0670865675836133e-05
+    normalize.p: -1.0
 entity_ranking:
   chunk_size: 1024
 valid:
