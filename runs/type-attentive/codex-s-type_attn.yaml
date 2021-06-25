@@ -55,17 +55,16 @@ train:
   optimizer:
     default:
       type: Adam
-      args.lr: 0.00039503865681096934
-    type_attentive:
-      regex: .*entity_embedder\.(self_attn|mi_proj).*
-      args.lr: 0.00039503865681096934
-  lr_warmup: 5
+      args.lr: 0.03 #0.00039503865681096934
+    #type_attentive:
+    #  regex: .*entity_embedder\.(self_attn|mi_proj).*
+    #  args.lr: 0.00039503865681096934
+  #lr_warmup: 5
   type: negative_sampling
 transe:
   entity_embedder:
     type: type_attentive_embedder
-    mi_min_threshold: 0.
-    add_entity_to_keyvalue: False
+    add_entity_to_keyvalue: false
     base_embedder:
       dropout: -0.4636794375255704
       normalize.p: -1.0
