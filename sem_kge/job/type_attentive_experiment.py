@@ -128,10 +128,10 @@ class TypeAttentiveExperimentJob(EvaluationJob):
         df = pd.DataFrame({ key : tensor.tolist() for key,tensor in calc_results.items() })
         df['log_nr_outcomes'] = np.log(df['nr_outcomes'])
         figure = sns.scatterplot(x='nr_outcomes', y='metric_entropy', data=df, size=0.05, legend=False).get_figure()
-        figure.savefig(f"scatter_nr_types_vs_metric_entropy.png")
+        figure.savefig(f"scatter_nr_types_vs_metric_entropy.png", bbox_inches="tight")
         figure.clf()
         figure = sns.scatterplot(x='type_total_attn', y='metric_entropy', data=df, size=0.05, legend=False, hue='log_nr_outcomes').get_figure()
-        figure.savefig(f"scatter_type_total_attn_vs_metric_entropy.png")
+        figure.savefig(f"scatter_type_total_attn_vs_metric_entropy.png", bbox_inches="tight")
         figure.clf()
 
         self._add_average(calc_results, results_dict)
