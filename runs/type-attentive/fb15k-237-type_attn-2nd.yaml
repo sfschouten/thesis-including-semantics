@@ -22,13 +22,12 @@ negative_sampling:
     s: 51
     p: -1
     o: 9
-  shared: True
+  shared: true
   implementation: batch
 train:
   auto_correct: true
   batch_size: 256
   loss: kl
-  loss_arg: 5.290767559781671
   lr_scheduler: ReduceLROnPlateau
   lr_scheduler_args:
     +++: +++
@@ -61,7 +60,7 @@ lookup_embedder:
     xavier_uniform_:
       gain: 1.0
   regularize: ''
-  regularize_args.weighted: False
+  regularize_args.weighted: false
 reciprocal_relations_model:
   base_model:
     type: transe
