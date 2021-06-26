@@ -20,7 +20,7 @@ type_attentive_embedder:
 
   entropy_mode: max
   entropy_threshold: 0.001
-  entropy_scale: 10.
+  entropy_scale: 1.
   entropy_damping: 1.
   
   regularize_args:

@@ -174,8 +174,8 @@ class TypeAttentiveEmbedder(KgeEmbedder):
         
         from torch.distributions.categorical import Categorical
         entropy = Categorical(probs = weights.squeeze()).entropy()
-
-        self.entropy = entropy.sum()
+        
+        self.entropy = entropy.mean()
         
     def penalty(self, **kwargs):
         terms = super().penalty(**kwargs)
