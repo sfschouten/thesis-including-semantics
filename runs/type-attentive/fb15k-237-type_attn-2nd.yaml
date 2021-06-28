@@ -42,7 +42,7 @@ train:
       type: Adagrad
       args.lr: 0.03608244354696689
     type_attentative:
-      regex: .*entity_embedder\\.(self_attn|mi_proj).*
+      regex: .*entity_embedder\.(self_attn|mi_proj).*
       args.lr: 0.3973413399833552
   type: negative_sampling
 lookup_embedder:
