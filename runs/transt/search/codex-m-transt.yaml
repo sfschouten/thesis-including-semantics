@@ -9,7 +9,7 @@ job:
       
 search.type: ax
 
-dataset.name: wnrr-typed
+dataset.name: codex-m-typed
 
 train:
   max_epochs: 400
