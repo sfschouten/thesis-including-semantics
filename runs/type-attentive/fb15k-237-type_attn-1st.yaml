@@ -43,7 +43,7 @@ train:
       type: Adam
       args.lr: 0.00017528104732161985
     type_attentative:
-      regex: .*entity_embedder\\.(self_attn|mi_proj).*
+      regex: .*entity_embedder\.(self_attn|mi_proj).*
       args.lr: 0.6653705273288685
   type: negative_sampling
 lookup_embedder:
