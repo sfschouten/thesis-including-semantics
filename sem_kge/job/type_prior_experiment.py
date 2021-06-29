@@ -92,9 +92,16 @@ class TypePriorExperimentJob(EvaluationJob):
             #print(indexes.shape)
             indexes = indexes.unsqueeze(-1)
             
-            pos,neg = embedder._calc_prior_loss(indexes)
-            pos = -pos.squeeze()
-            neg = -neg.squeeze()
+            NR_SAMPLES = 16
+            
+            pos, neg = 0, 0
+            for _ in range(NR_SAMPLES):
+                pos_, neg_ = embedder._calc_prior_loss(indexes)
+                pos += -pos_.squeeze()
+                neg += -neg_.squeeze()
+                
+            pos /= NR_SAMPLES
+            neg /= NR_SAMPLES
             
             return dict(
                 prior_lpdf_pos = pos,
