@@ -21,6 +21,11 @@ SLOTS = [0, 1, 2]
 S, P, O = SLOTS
 SLOT_STR = ["s", "p", "o"]
 
+
+HUMAN_READABLE = {
+    "nr_outcomes" : "Nr. Outcomes",
+}
+
 class TypeAttentiveExperimentJob(EvaluationJob):
     """
     Job to analyse the attention weights of the type-attentive embedders in a
@@ -41,6 +46,7 @@ class TypeAttentiveExperimentJob(EvaluationJob):
         config_key = "type_attentive_experiment"
         self.trace_entity_level = self.config.get(config_key + ".trace_entity_level")
         self.chunk_size = self.config.get("type_attentive_experiment.chunk_size")
+        
 
     def _perform_chunked(self, operation):
         """ Performs `operation` on entities in chunks. """
@@ -56,6 +62,8 @@ class TypeAttentiveExperimentJob(EvaluationJob):
         for chunk_number in range(nr_of_chunks):
             chunk_start = chunk_size * chunk_number
             chunk_end = min(chunk_size * (chunk_number + 1), num_entities)
+            
+            self.config.log(f"Chunk {chunk_number+1} / {nr_of_chunks}")
             
             indexes = torch.arange(chunk_start, chunk_end, device=self.device)
             
@@ -75,17 +83,23 @@ class TypeAttentiveExperimentJob(EvaluationJob):
             
     def _add_average(self, new_results, trace_dict):
         for key,value in new_results.items():
-            trace_dict[f'{key}_avg'] = value[~value.isnan()].mean().item()
-    
+            mask = ~( value.isnan().logical_or(value.isinf()) )
+            trace_dict[f'{key}_avg'] = value[mask].mean().item()
+
     def _generate_plot(self, new_results, name):
         sns.set_theme(style="whitegrid")
         
         for key, value in new_results.items():
-            value = value.tolist()
+            mask = ~( value.isnan().logical_or(value.isinf()) )
+            value = value[mask].tolist()
             
-            figure = sns.violinplot(data=value).get_figure()
-            figure.savefig(f"{name}_{key}.png")
-            figure.clf()
+            g = sns.violinplot(data=value)
+            g.set(xticklabels=[])
+            if key in HUMAN_READABLE:
+                g.set_ylabel(HUMAN_READABLE[key])
+            fig = g.get_figure()
+            fig.savefig(f"{name}_{key}.png")
+            fig.clf()
 
     def _calc_attn_distribution(self, embedder, results_dict):
 
@@ -97,28 +111,31 @@ class TypeAttentiveExperimentJob(EvaluationJob):
             t_paddin = embedder.type_padding[indexes]
             _, attn_w = embedder._embed(e_embeds, t_embeds, t_paddin, True)
                                                         # E x 1 x T'+1
+                                                    
+            nr_outcomes = (~t_paddin).sum(dim=1).float()
+            entropy = Categorical(probs = attn_w.squeeze()).entropy()
 
-            # calculate the attention paid to all types for each entity
-            t_attn = attn_w[:,:,1:].squeeze()
-            t_attn_sum = t_attn.sum(dim=1).squeeze()
-            
-            # 
-            entropy = Categorical(probs = t_attn).entropy()
-            nr_outcomes = (~t_paddin).sum(dim=1)
-            
-            print(embedder.add_entity_to_keyvalue)
-            print(embedder.get_option('add_entity_to_keyvalue'))
+            self.config.log(f"add_entity_to_keyvalue: {embedder.get_option('add_entity_to_keyvalue')}")
             if hasattr(embedder, 'add_entity_to_keyvalue') and embedder.add_entity_to_keyvalue:
                 nr_outcomes += 1
-                print("Increasing outcomes by 1, because this embedder also adds entity to key/value.")
+                self.config.log("Increasing outcomes by 1, because this embedder also adds entity to key/value.")
+                
+                # calculate the attention paid to all types for each entity
+                t_attn = attn_w[:,:,1:]
+                t_attn_sum = t_attn.sum(dim=2).squeeze()
+                
+            else:
+                t_attn_sum = attn_w.squeeze().sum(dim=1)
+       
+            entropy /= torch.log(nr_outcomes)
             
-            entropy /= torch.log(nr_outcomes.float())
-
             return dict(
                 type_total_attn=t_attn_sum,
                 metric_entropy=entropy,
-                nr_outcomes=nr_outcomes.float()
+                nr_outcomes=nr_outcomes
             )
+
+        self.config.log("\nPerforming analysis of attention distribution.")
 
         calc_results = self._perform_chunked(_perform_calculation)
 
@@ -127,12 +144,18 @@ class TypeAttentiveExperimentJob(EvaluationJob):
 
         df = pd.DataFrame({ key : tensor.tolist() for key,tensor in calc_results.items() })
         df['log_nr_outcomes'] = np.log(df['nr_outcomes'])
-        figure = sns.scatterplot(x='nr_outcomes', y='metric_entropy', data=df, size=0.05, legend=False).get_figure()
-        figure.savefig(f"scatter_nr_types_vs_metric_entropy.png", bbox_inches="tight")
-        figure.clf()
-        figure = sns.scatterplot(x='type_total_attn', y='metric_entropy', data=df, size=0.05, legend=False, hue='log_nr_outcomes').get_figure()
-        figure.savefig(f"scatter_type_total_attn_vs_metric_entropy.png", bbox_inches="tight")
-        figure.clf()
+        
+        g = sns.scatterplot(x='nr_outcomes', y='metric_entropy', data=df, size=0.05, legend=False)
+        g.set_xlabel("Nr. Outcomes")
+        g.set_ylabel("Metric Entropy")
+        fig = g.get_figure()
+        fig.savefig(f"scatter_nr_types_vs_metric_entropy.png", bbox_inches="tight")
+        fig.clf()
+        
+        g = sns.scatterplot(x='type_total_attn', y='metric_entropy', data=df, size=0.05, legend=False, hue='log_nr_outcomes')
+        fig = g.get_figure()
+        fig.savefig(f"scatter_type_total_attn_vs_metric_entropy.png", bbox_inches="tight")
+        fig.clf()
 
         self._add_average(calc_results, results_dict)
         self._generate_plot(calc_results, "attn_distribution")
@@ -188,6 +211,7 @@ class TypeAttentiveExperimentJob(EvaluationJob):
                 entity_norms = e_norms,
             )
 
+        self.config.log("\nPerforming analysis of embeddings.")
 
         calc_results = self._perform_chunked(_perform_calculation)
 

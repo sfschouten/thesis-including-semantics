@@ -1,5 +1,9 @@
 
+import math
+
 import torch
+
+from tqdm import tqdm
 
 
 def index_relation_types(dataset: "TypedDataset"):
@@ -65,5 +69,55 @@ def index_entity_types(dataset: "TypedDataset"):
     return dataset._indexes[KEY]
 
 
+def index_jaccard_types(dataset: "TypedDataset"):
+    """
+    Viewing types as sets of entities, calculate the jaccard index between every two types.
+    """
+    KEY = "type_jaccards"
+    
+    if KEY not in dataset._indexes:
+        dataset.config.log(f"Creating {KEY} tensor.")
+        
+        types_tensor = dataset.index("entity_type_set")
+        
+        T = dataset.num_types()
+        E = dataset.num_entities()
+        
+        # Create structures
+        type_union = torch.zeros((T,T))
+        type_intersection = torch.zeros((T,T))
+        type_freqs = torch.zeros((T))
+    
+        # calculate in chunks
+        chunk_size = 16 #self.chunk_size if self.chunk_size > -1 else E
+        
+        nr_of_chunks = math.ceil(E / chunk_size)
+        
+        all_results = []
+        for chunk_number in tqdm(range(nr_of_chunks)):
+            chunk_start = chunk_size * chunk_number
+            chunk_end = min(chunk_size * (chunk_number + 1), E)
+            indexes = torch.arange(chunk_start, chunk_end)
+    
+            C, = indexes.shape
+        
+            e_types = types_tensor[indexes]
+            type_freqs += e_types.sum(dim=0)
+            
+            a = e_types[:, :, None].expand(C,T,T)
+            b = e_types[:, None, :].expand(C,T,T)
+            type_union += a.logical_or(b).long().sum(dim=0)
+            type_intersection += a.logical_and(b).long().sum(dim=0)
 
+        a = type_freqs[:, None].expand(T,T)
+        b = type_freqs[None, :].expand(T,T)
+        type_min = torch.min(a,b)
+
+        jaccard = type_intersection.float() / type_union.float()
+        overlap = type_intersection.float() / type_min.float()
+        
+        result = torch.stack((overlap, jaccard, type_union, type_intersection))
+        dataset._indexes[KEY] = result
+        
+    return dataset._indexes[KEY]
 
