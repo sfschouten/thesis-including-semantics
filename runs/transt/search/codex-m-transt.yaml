@@ -1,17 +1,11 @@
 modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
 
-job:
-  type: search
-  #external_tracking:
-  #  weights-and-biases:
-  #    project: sem_kge
-  #    group: transt
-      
+job.type: search
 search.type: ax
-
-dataset.name: wnrr-typed
+dataset.name: codex-m-typed
 
 train:
+  type: negative_sampling
   max_epochs: 400
   auto_correct: true
 
@@ -31,21 +25,27 @@ eval:
     relation_type: true
   trace_level: example
 
-import: [transt]
+import:
+- type_linkprior
+- transe
+- reciprocal_relations_model
 
+model: type_linkprior 
+
+type_linkprior:
+  base_model:
+    type: reciprocal_relations_model
+    base_model:
+      type: transe
 
 ax_search:
   num_trials: 30
   num_sobol_trials: 30
   parameters:
-    # model
-    - name: model
-      type: fixed
-      value: transt
       
     # training hyperparameters
     - name: train.batch_size
-      type: fixed
+      type: choice
       values: [128, 256, 512, 1024]
       is_ordered: True
     - name: train.type
@@ -112,20 +112,20 @@ ax_search:
     - name: lookup_embedder.regularize_args.weighted
       type: choice
       values: [True, False]
-    - name: transt.entity_embedder.regularize_weight
+    - name: transe.entity_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
-    - name: transt.relation_embedder.regularize_weight
+    - name: transe.relation_embedder.regularize_weight
       type: range
       bounds: [1.0e-20, 1.0e-01]
       log_scale: True
 
     # embedding dropout
-    - name: transt.entity_embedder.dropout
+    - name: transe.entity_embedder.dropout
       type: range
       bounds: [-0.5, 0.5]
-    - name: transt.relation_embedder.dropout
+    - name: transe.relation_embedder.dropout
       type: range
       bounds: [-0.5, 0.5]
 
@@ -143,35 +143,34 @@ ax_search:
       value: True
     - name: negative_sampling.implementation
       type: fixed
-      value: batch
+      value: triple
   
     # model-specific entries
-    - name: transt.l_norm
+    - name: transe.l_norm
       type: choice
       values: [1.0, 2.0]
       is_ordered: True
-    - name: transt.entity_embedder.normalize.p
+    - name: transe.entity_embedder.normalize.p
       type: choice
       values: [-1.0, 2.0]
-    - name: transt.relation_embedder.normalize.p
+    - name: transe.relation_embedder.normalize.p
       type: choice
       values: [-1.0, 2.0]
       
-    - name: transt.lambda_head
+    - name: type_linkprior.lambda_head
       type: range
       bounds: [0., 1.]
-    - name: transt.lambda_relation
+    - name: type_linkprior.lambda_relation
       type: range
       bounds: [0., 1.]
-    - name: transt.lambda_tail
+    - name: type_linkprior.lambda_tail
       type: range
       bounds: [0., 1.]
-    - name: transt.learn_lambda
+    - name: type_linkprior.learn_lambda
       type: choice
       values: [True, False]
-    - name: transt.rho
+    - name: type_linkprior.rho
       type: range
       bounds: [0., 1.]
-      
-      
+
 
