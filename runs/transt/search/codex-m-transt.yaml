@@ -45,9 +45,9 @@ ax_search:
       
     # training hyperparameters
     - name: train.batch_size
-      type: choice
-      values: [128, 256] #, 512, 1024
-      is_ordered: True
+      type: fixed
+      value: 128 #, 256, 512, 1024
+      #is_ordered: True
     - name: train.type
       type: fixed
       value: negative_sampling
