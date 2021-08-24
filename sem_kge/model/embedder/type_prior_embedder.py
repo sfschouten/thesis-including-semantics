@@ -86,7 +86,20 @@ class TypePriorEmbedder(KgeEmbedder, LoggingMixin):
         self.aggr_fun_types = self.check_option('aggr_fun_types', ['mean', 'sum'])
         self.nll_max_threshold = self.get_option_and_log("nll_max_threshold")
 
-        self.nll_type_prior = torch.tensor(0)
+        self.nll_type_prior = torch.tensor(0)        
+        
+        # init dummy module, in case we wish to load parameters from file.
+        self.init_mdmm_module()
+        
+
+    def init_mdmm_module(self):
+        max_prior_nll_constraint = mdmm.MaxConstraint(
+            lambda: self.nll_type_prior,
+            self.nll_max_threshold,
+            scale = self.get_option_and_log("nll_max_scale"),
+            damping = self.get_option_and_log("nll_max_damping")
+        )
+        self.mdmm_module = mdmm.MDMM([max_prior_nll_constraint])
         
     def prepare_job(self, job: "Job", **kwargs):
         super().prepare_job(job, **kwargs)
@@ -95,13 +108,7 @@ class TypePriorEmbedder(KgeEmbedder, LoggingMixin):
         
         if isinstance(job, TrainingJob):
             # use Modified Differential Multiplier Method for regularization loss
-            max_prior_nll_constraint = mdmm.MaxConstraint(
-                lambda: self.nll_type_prior,
-                self.nll_max_threshold,
-                scale = self.get_option_and_log("nll_max_scale"),
-                damping = self.get_option_and_log("nll_max_damping")
-            )
-            self.mdmm_module = mdmm.MDMM([max_prior_nll_constraint])
+            self.init_mdmm_module()
             misc.add_constraints_to_job(job, self.mdmm_module)
         
         # trace the regularization loss
@@ -122,12 +129,12 @@ class TypePriorEmbedder(KgeEmbedder, LoggingMixin):
 
     def _calc_prior_loss(self, indexes):
         types = self.entity_types[indexes]              # B x 2 x T_
-        B, _, T_ = types.shape
+        B, L, T_ = types.shape
         
         def negative_sample_types(positives):
             T = self.dataset.num_types()
-            indices = indexes.view(2*B)
-            all_indices = torch.arange(T, device=self.device).unsqueeze(1).expand(T,2*B)
+            indices = indexes.view(L*B)
+            all_indices = torch.arange(T, device=self.device).unsqueeze(1).expand(T,L*B)
             type_indices = (~self.entity_type_set[indices].T) * all_indices
             type_indices[self.entity_type_set[indices].T] = self.PADDING_IDX
             
@@ -153,15 +160,19 @@ class TypePriorEmbedder(KgeEmbedder, LoggingMixin):
                 nr_types[nr_types==0] = 1     # prevent divide_by_zero 
                                               # (where nr_types is zero, so will nll)
                 nll = nll.div(nr_types)
-            return nll.mean()
+            return nll
         
-        neg_types = negative_sample_types(types.view(2*B,T_).T).T.view(B, 2, T_)
+        neg_types = negative_sample_types(types.view(L*B,T_).T).T.view(B, L, T_)
         
         embeds = self.base_embedder.embed(indexes)      # B x 2 x D
         embeds = embeds.unsqueeze(2)                    # B x 2 x 1 x D
         
-        self.nll_type_prior  = calc(embeds, types)
-        self.nll_type_prior -= calc(embeds, neg_types)
+        pos = calc(embeds, types)
+        neg = calc(embeds, neg_types)
+        self.nll_type_prior  = pos.mean()
+        self.nll_type_prior -= neg.mean()
+        
+        return pos,neg
 
     def penalty(self, **kwargs):
         terms = super().penalty(**kwargs)
