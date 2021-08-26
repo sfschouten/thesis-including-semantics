@@ -69,9 +69,6 @@ transe:
   entity_embedder:
     type: type_attentive_embedder
     attn_nhead: 1
-    mi_min_threshold: -4.400739558041096
-    mi_min_scale: 0.02301142083565282
-    mi_min_damping: 1.7479820087405986
     base_embedder:
       dropout: -0.00843233335763216
       regularize_weight: 8.491592776710134e-17

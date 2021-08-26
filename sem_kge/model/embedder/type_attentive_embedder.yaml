@@ -17,10 +17,10 @@ type_attentive_embedder:
 
   attn_nhead: 1
   
-  # When threshold is zero or below the Mutual Information loss is disabled.
-  mi_min_threshold: 0.
-  mi_min_scale: 1.
-  mi_min_damping: 1.
+  entropy_mode: max
+  entropy_threshold: 0.001
+  entropy_scale: 1.
+  entropy_damping: 1.
   
   regularize_args:
     weighted: True
