@@ -1,10 +1,5 @@
-from typing import Optional, Tuple
-import random
-
 import torch
-import torch.nn.functional as F
 
-from torch.nn.parameter import Parameter
 from torch.nn import Linear, MultiheadAttention
 
 from kge.model import KgeEmbedder
@@ -14,6 +9,7 @@ from sem_kge import TypedDataset
 from sem_kge import misc
 
 import mdmm
+
 
 class TypeAttentiveEmbedder(KgeEmbedder):
     """ 
@@ -43,7 +39,6 @@ class TypeAttentiveEmbedder(KgeEmbedder):
         self.dropout = self.get_option("dropout")
         self.device = self.config.get("job.device")
         
-
         # initialize base_embedder
         if self.configuration_key + ".base_embedder.type" not in config.options:
             config.set(
@@ -93,7 +88,6 @@ class TypeAttentiveEmbedder(KgeEmbedder):
         
         self.add_entity_to_keyvalue = self.get_option("add_entity_to_keyvalue")
         
-
     def init_mdmm_module(self):
         if self.entropy_mode != "off":
             cls = mdmm.MinConstraint if self.entropy_mode == "min" else mdmm.MaxConstraint
@@ -101,8 +95,8 @@ class TypeAttentiveEmbedder(KgeEmbedder):
             self.mdmm_module = mdmm.MDMM([ cls(
                 lambda: self.entropy,
                 self.entropy_threshold,
-                scale = self.get_option("entropy_scale"),
-                damping = self.get_option("entropy_damping")
+                scale=self.get_option("entropy_scale"),
+                damping=self.get_option("entropy_damping")
             )])
 
     def prepare_job(self, job: "Job", **kwargs):
@@ -134,20 +128,19 @@ class TypeAttentiveEmbedder(KgeEmbedder):
             key = type_embeds                               # T' x B x D
         value = key
         
-        B,T = type_padding_mask.shape
+        B, T = type_padding_mask.shape
         if self.add_entity_to_keyvalue:
-            prepend = torch.zeros((B,1), device=self.device).bool()
+            prepend = torch.zeros((B, 1), device=self.device).bool()
             mask = torch.cat((prepend, type_padding_mask), dim=1)
         else:
             nr_types = (~type_padding_mask).sum(dim=1)
             mask = type_padding_mask
             
             # set at least one to False
-            mask[nr_types==0, 0] = False
+            mask[nr_types == 0, 0] = False
         
         attn_output, attn_weights = self.self_attn(query, key, value, key_padding_mask=mask)
         attn_output = attn_output.squeeze()          # 1 x B x D, B x 1 x T'[+1]
-
 
         return attn_output if not return_weights else (attn_output, attn_weights)
 
@@ -169,26 +162,40 @@ class TypeAttentiveEmbedder(KgeEmbedder):
         entity_embeds = self.base_embedder.embed(indexes)
         types = self.entity_types[indexes]
         type_embeds = self.type_embedder.embed(types.T)
-        type_paddin = self.type_padding[indexes]
-        out, weights = self._embed(entity_embeds, type_embeds, type_paddin, return_weights=True)
-        
+        type_padding = self.type_padding[indexes]
+        out, weights = self._embed(entity_embeds, type_embeds, type_padding, return_weights=True)
+
+        # calculate entropy of weight distributions
         from torch.distributions.categorical import Categorical
-        entropy = Categorical(probs = weights.squeeze()).entropy()
-        
+        entropy = Categorical(probs=weights.squeeze()).entropy()
+
+        # calculate number of outcomes
+        nr_outcomes = (~type_padding).sum(dim=1)
+        if self.add_entity_to_keyvalue:
+            nr_outcomes += 1
+
+        # normalize to metric entropy (while preventing divide by zero with just one outcome)
+        entropy[nr_outcomes > 1] /= torch.log(nr_outcomes.float())[nr_outcomes > 1]
+
         self.entropy = entropy.mean()
         
     def penalty(self, **kwargs):
         terms = super().penalty(**kwargs)
         terms += self.base_embedder.penalty(**kwargs)
-        terms += self.type_embedder.penalty(**kwargs)
-        
+
         indexes = kwargs['indexes'].view(-1)               # B x 2
-        
+
+        type_indexes = self.entity_types[indexes]
+        type_indexes = type_indexes[type_indexes != self.PADDING_IDX]
+        type_kwargs = dict(**kwargs)
+        type_kwargs['indexes'] = type_indexes
+        terms += self.type_embedder.penalty(**type_kwargs)
+
         if self.entropy_mode != 'off':
             self.calc_entropy(indexes)
-            terms += [ ( 
+            terms += [(
                 f"{self.configuration_key}.entropy", 
                 self.mdmm_module(torch.zeros((1), device=self.device)).value
-            ) ]
+            )]
 
         return terms

@@ -17,7 +17,6 @@ type_attentive_embedder:
 
   attn_nhead: 1
   
-
   entropy_mode: max
   entropy_threshold: 0.001
   entropy_scale: 1.
