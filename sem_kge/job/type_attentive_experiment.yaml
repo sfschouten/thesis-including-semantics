@@ -1,4 +1,0 @@
-type_attentive_experiment:
-  class_name: TypeAttentiveExperimentJob
-  trace_entity_level: False
-  chunk_size: -1

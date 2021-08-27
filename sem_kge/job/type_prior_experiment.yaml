@@ -1,5 +1,0 @@
-type_prior_experiment:
-  class_name: TypePriorExperimentJob
-  trace_entity_level: False
-  chunk_size: -1
-  prior_lpdf_nr_trials: 16

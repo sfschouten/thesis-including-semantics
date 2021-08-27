@@ -1,0 +1,80 @@
+modules: [kge.model, kge.model.embedder, sem_kge.model, sem_kge.model.embedder]
+import:
+- transe
+- type_mean_embedder
+- reciprocal_relations_model
+
+job:
+  external_tracking:
+    weights-and-biases:
+      project: sem_kge
+      group: transe
+
+dataset:
+  name: wnrr-typed
+
+eval:
+  batch_size: 256
+  metrics_per:
+    relation_type: true
+
+lookup_embedder:
+  dim: 512
+  initialize: uniform_
+  initialize_args:
+    uniform_:
+      a: -0.23391299869753412
+  regularize: 'lp'
+  regularize_args.weighted: True
+
+transe:
+  entity_embedder:
+    type: type_mean_embedder
+    use_entity_embedder: false
+    type_embedder:
+      regularize_weight: 0. #8.678063846723288e-12
+  l_norm: 2.0
+  relation_embedder:
+    dropout: 0.066832285374403
+    normalize.p: 2.0
+    regularize_weight: 1.6609643700252006e-14
+
+reciprocal_relations_model:
+  base_model:
+    type: transe
+
+model: reciprocal_relations_model
+
+negative_sampling:
+  num_samples:
+    o: 50
+    s: 512
+  shared: True
+  implementation: batch
+
+train:
+  type: negative_sampling
+  loss: kl
+  auto_correct: true
+  batch_size: 1024
+  lr_scheduler: ReduceLROnPlateau
+  lr_scheduler_args:
+    factor: 0.95
+    mode: max
+    patience: 6
+    threshold: 0.0001
+  max_epochs: 400
+  optimizer:
+    default:
+      type: Adagrad
+      args.lr: 0.00884854579303898
+
+valid:
+  early_stopping:
+    min_threshold:
+      epochs: 50
+      metric_value: 0.05
+    patience: 10
+
+entity_ranking:
+  chunk_size: 1024
